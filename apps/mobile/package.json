@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "dev": "node ./scripts/expo-start.js",
+    "start": "node ./scripts/expo-start.js",
+    "android": "node ./scripts/expo-start.js --android",
+    "ios": "node ./scripts/expo-start.js --ios",
+    "web": "node ./scripts/expo-start.js --web",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit"
   },
@@ -36,6 +37,7 @@
   "devDependencies": {
     "@types/node": "^24.12.0",
     "@types/react": "~19.1.10",
+    "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -1,14 +1,13 @@
 import { Feather } from "@expo/vector-icons";
-import { colors } from "@madhuban/theme";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { useAuth } from "../../src/context/AuthContext";
-import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
-import { styles } from "../../src/styles/screens/tabs/reports.styles";
+import { useAuth } from "../../context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
+import { styles } from "../../styles/screens/tabs/reports.styles";
 
 const RANGES = ["Day", "Week", "Month", "Year"] as const;
 
-export default function ReportsScreen() {
+export function ReportsScreen() {
   const { role } = useAuth();
   const [range, setRange] = useState<(typeof RANGES)[number]>("Week");
 
@@ -65,8 +64,8 @@ export default function ReportsScreen() {
         <View style={styles.noteCard}>
           <Text style={styles.noteTitle}>Next step for this module</Text>
           <Text style={styles.noteText}>
-            Once you share the exact manager and supervisor dashboard sections, we can plug
-            the live analytics cards into this shell without changing the shared layout.
+            Each role now has its own route group, so we can plug manager and supervisor
+            analytics into this shell without coupling them to one shared dashboard entry.
           </Text>
         </View>
       </View>

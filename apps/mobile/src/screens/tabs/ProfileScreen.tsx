@@ -1,12 +1,11 @@
-import { colors } from "@madhuban/theme";
 import { router } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
-import { Button } from "../../src/components/Button";
-import { useAuth } from "../../src/context/AuthContext";
-import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
-import { styles } from "../../src/styles/screens/tabs/profile.styles";
+import { Button } from "../../components/Button";
+import { useAuth } from "../../context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
+import { styles } from "../../styles/screens/tabs/profile.styles";
 
-export default function ProfileScreen() {
+export function ProfileScreen() {
   const { user, clearSession } = useAuth();
 
   async function logout() {

@@ -1,9 +1,9 @@
 import { colors, radii, space } from "@madhuban/theme";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button } from "../../src/components/Button";
+import { Button } from "../../components/Button";
 
-export default function QrScreen() {
+export function QrScreen() {
   const [last, setLast] = useState<string | null>(null);
 
   return (

@@ -1,9 +1,14 @@
-import { useAuth } from "../src/context/AuthContext";
-import { getRoleHomePath } from "../src/navigation/roleRoutes";
-import { Redirect } from "expo-router";
+import type { UserRole } from "@madhuban/types";
+import { Redirect, Slot } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useAuth } from "../context/AuthContext";
+import { getRoleHomePath, isRoleAllowed } from "./roleRoutes";
 
-export default function Index() {
+export function RoleRouteGuard({
+  allowedRoles,
+}: {
+  allowedRoles: Array<UserRole | string>;
+}) {
   const { token, role, isReady } = useAuth();
 
   if (!isReady) {
@@ -18,7 +23,11 @@ export default function Index() {
     return <Redirect href="/(auth)/splash" />;
   }
 
-  return <Redirect href={getRoleHomePath(role)} />;
+  if (!isRoleAllowed(role, allowedRoles)) {
+    return <Redirect href={getRoleHomePath(role)} />;
+  }
+
+  return <Slot />;
 }
 
 const styles = StyleSheet.create({

@@ -9,6 +9,7 @@ import { Button } from "../../src/components/Button";
 import { TextField } from "../../src/components/TextField";
 import { useAuth } from "../../src/context/AuthContext";
 import { AuthLayout } from "../../src/layouts/AuthLayout";
+import { getRoleHomePath } from "../../src/navigation/roleRoutes";
 import {
   getLoginIdentifierError,
   getPasswordError,
@@ -42,11 +43,11 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    try {
-      const { token, user } = await mobileLogin(identifier, password);
-      await setSession(token, user);
-      router.replace("/(tabs)/home");
-    } catch (e) {
+      try {
+        const { token, user } = await mobileLogin(identifier, password);
+        await setSession(token, user);
+        router.replace(getRoleHomePath(user.role));
+      } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     } finally {
       setLoading(false);

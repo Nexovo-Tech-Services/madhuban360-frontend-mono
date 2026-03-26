@@ -9,11 +9,11 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAuth } from "../../src/context/AuthContext";
-import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
-import { styles } from "../../src/styles/screens/tabs/tasks.styles";
+import { useAuth } from "../../context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
+import { styles } from "../../styles/screens/tabs/tasks.styles";
 
-export default function TasksScreen() {
+export function TasksScreen() {
   const { role } = useAuth();
   const [tab, setTab] = useState<"active" | "completed">("active");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -76,9 +76,7 @@ export default function TasksScreen() {
             onPress={() => setTab("completed")}
             style={[styles.tab, tab === "completed" && styles.tabActive]}
           >
-            <Text
-              style={[styles.tabText, tab === "completed" && styles.tabTextActive]}
-            >
+            <Text style={[styles.tabText, tab === "completed" && styles.tabTextActive]}>
               Completed
             </Text>
           </Pressable>

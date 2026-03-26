@@ -4,7 +4,9 @@
   "packageManager": "pnpm@10.32.1",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=@madhuban/mobile --filter=@madhuban/web-admin",
+    "dev:apps": "turbo run dev --filter=@madhuban/mobile --filter=@madhuban/web-admin",
+    "start": "turbo run dev --filter=@madhuban/mobile --filter=@madhuban/web-admin",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck"
   },

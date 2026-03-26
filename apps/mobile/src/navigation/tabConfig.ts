@@ -15,6 +15,17 @@ function normalizeRole(role: UserRole | string | undefined): string {
 export function getTabsForRole(
   role: UserRole | string | undefined,
 ): TabDefinition[] {
+  const normalized = normalizeRole(role);
+
+  if (normalized === "staff" || normalized === "guard" || normalized === "admin") {
+    return [
+      { name: "home", title: "Home" },
+      { name: "tasks", title: "Tasks" },
+      { name: "qr", title: "Scan" },
+      { name: "profile", title: "Profile" },
+    ];
+  }
+
   return [
     { name: "home", title: "Home" },
     { name: "tasks", title: "Tasks" },
@@ -24,6 +35,6 @@ export function getTabsForRole(
 }
 
 export function showQrTab(role: UserRole | string | undefined): boolean {
-  void role;
-  return false;
+  const normalized = normalizeRole(role);
+  return normalized === "staff" || normalized === "guard" || normalized === "admin";
 }
