@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../src/components/Button";
 import { OtpInput } from "../../src/components/OtpInput";
 import { AuthLayout } from "../../src/layouts/AuthLayout";
+import { getOtpError, sanitizeDigits } from "../../src/utils/validation";
 
 export default function OtpScreen() {
   const params = useLocalSearchParams<{ mobile?: string }>();
@@ -15,7 +16,13 @@ export default function OtpScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit() {
-    setError(null);
+    const nextError = getOtpError(otp);
+    setError(nextError);
+
+    if (nextError) {
+      return;
+    }
+
     setLoading(true);
     try {
       const res = (await verifyOtp(mobile, otp)) as {
@@ -42,7 +49,13 @@ export default function OtpScreen() {
       cardContentStyle={styles.content}
     >
       <View style={styles.form}>
-        <OtpInput value={otp} onChange={setOtp} />
+        <OtpInput
+          value={otp}
+          onChange={(value) => {
+            setOtp(sanitizeDigits(value).slice(0, 4));
+            setError(null);
+          }}
+        />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button title="Verify & Login" variant="success" onPress={onSubmit} loading={loading} />
         <Link href="/(auth)/forgot" asChild>

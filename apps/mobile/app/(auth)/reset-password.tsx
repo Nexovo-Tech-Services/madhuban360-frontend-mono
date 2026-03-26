@@ -7,6 +7,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../src/components/Button";
 import { TextField } from "../../src/components/TextField";
 import { AuthLayout } from "../../src/layouts/AuthLayout";
+import {
+  getConfirmPasswordError,
+  getPasswordError,
+} from "../../src/utils/validation";
 
 export default function ResetPasswordScreen() {
   const params = useLocalSearchParams<{
@@ -24,13 +28,24 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    password?: string | null;
+    confirmPassword?: string | null;
+  }>({});
 
   async function onSubmit() {
+    const nextFieldErrors = {
+      password: getPasswordError(password),
+      confirmPassword: getConfirmPasswordError(password, confirmPassword),
+    };
+
+    setFieldErrors(nextFieldErrors);
     setError(null);
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+
+    if (nextFieldErrors.password || nextFieldErrors.confirmPassword) {
       return;
     }
+
     setLoading(true);
     try {
       await resetPasswordWithOtp(mobile, otp, password, resetToken || undefined);
@@ -51,22 +66,32 @@ export default function ResetPasswordScreen() {
         <TextField
           label="Password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            setFieldErrors((current) => ({ ...current, password: null }));
+            setError(null);
+          }}
           secureTextEntry
           autoCapitalize="none"
           placeholder="••••••••"
           leftIcon={<Ionicons name="lock-closed-outline" size={16} color="#89A0C2" />}
           textContentType="newPassword"
+          errorText={fieldErrors.password}
         />
         <TextField
           label="Confirm Password"
           value={confirmPassword}
-          onChangeText={setConfirmPassword}
+          onChangeText={(value) => {
+            setConfirmPassword(value);
+            setFieldErrors((current) => ({ ...current, confirmPassword: null }));
+            setError(null);
+          }}
           secureTextEntry
           autoCapitalize="none"
           placeholder="••••••••"
           leftIcon={<Ionicons name="checkmark-circle-outline" size={16} color="#89A0C2" />}
           textContentType="newPassword"
+          errorText={fieldErrors.confirmPassword}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button

@@ -9,17 +9,38 @@ import { Button } from "../../src/components/Button";
 import { TextField } from "../../src/components/TextField";
 import { useAuth } from "../../src/context/AuthContext";
 import { AuthLayout } from "../../src/layouts/AuthLayout";
+import {
+  getLoginIdentifierError,
+  getPasswordError,
+  sanitizeDigits,
+} from "../../src/utils/validation";
 
 export default function LoginScreen() {
   const { setSession } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [method, setMethod] = useState<AuthMethod>("mobile");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    identifier?: string | null;
+    password?: string | null;
+  }>({});
 
   async function onSubmit() {
+    const nextFieldErrors = {
+      identifier: getLoginIdentifierError(method, identifier),
+      password: getPasswordError(password),
+    };
+
+    setFieldErrors(nextFieldErrors);
     setError(null);
+
+    if (nextFieldErrors.identifier || nextFieldErrors.password) {
+      return;
+    }
+
     setLoading(true);
     try {
       const { token, user } = await mobileLogin(identifier, password);
@@ -37,7 +58,12 @@ export default function LoginScreen() {
       <View style={styles.segment}>
         <Pressable
           style={[styles.segmentItem, method === "mobile" && styles.segmentActive]}
-          onPress={() => setMethod("mobile")}
+          onPress={() => {
+            setMethod("mobile");
+            setIdentifier(sanitizeDigits(identifier).slice(0, 10));
+            setFieldErrors({});
+            setError(null);
+          }}
         >
           <Feather
             name="smartphone"
@@ -50,7 +76,11 @@ export default function LoginScreen() {
         </Pressable>
         <Pressable
           style={[styles.segmentItem, method === "email" && styles.segmentActive]}
-          onPress={() => setMethod("email")}
+          onPress={() => {
+            setMethod("email");
+            setFieldErrors({});
+            setError(null);
+          }}
         >
           <Feather
             name="mail"
@@ -67,7 +97,11 @@ export default function LoginScreen() {
         <TextField
           label={method === "mobile" ? "Mobile Number" : "Email Address"}
           value={identifier}
-          onChangeText={setIdentifier}
+          onChangeText={(value) => {
+            setIdentifier(method === "mobile" ? sanitizeDigits(value).slice(0, 10) : value);
+            setFieldErrors((current) => ({ ...current, identifier: null }));
+            setError(null);
+          }}
           keyboardType={method === "mobile" ? "phone-pad" : "email-address"}
           autoCapitalize="none"
           placeholder={method === "mobile" ? "+91 90000 00000" : "checker@madhuban.com"}
@@ -79,16 +113,31 @@ export default function LoginScreen() {
             />
           }
           textContentType={method === "mobile" ? "telephoneNumber" : "emailAddress"}
+          errorText={fieldErrors.identifier}
         />
         <TextField
           label="Password"
           value={password}
-          onChangeText={setPassword}
-          secureTextEntry
+          onChangeText={(value) => {
+            setPassword(value);
+            setFieldErrors((current) => ({ ...current, password: null }));
+            setError(null);
+          }}
+          secureTextEntry={!passwordVisible}
           autoCapitalize="none"
           placeholder="••••••••"
           leftIcon={<Ionicons name="lock-closed-outline" size={16} color="#89A0C2" />}
+          rightIcon={
+            <Ionicons
+              name={passwordVisible ? "eye-off-outline" : "eye-outline"}
+              size={18}
+              color="#89A0C2"
+            />
+          }
+          onRightIconPress={() => setPasswordVisible((current) => !current)}
+          rightIconAccessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
           textContentType="password"
+          errorText={fieldErrors.password}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Link href="/(auth)/forgot" asChild>
@@ -98,12 +147,7 @@ export default function LoginScreen() {
         </Link>
       </View>
 
-      <Button
-        title="Secure Login"
-        onPress={onSubmit}
-        loading={loading}
-        rightAdornment="→"
-      />
+      <Button title="Secure Login" onPress={onSubmit} loading={loading} rightAdornment="→" />
     </AuthLayout>
   );
 }

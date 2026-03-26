@@ -1,77 +1,75 @@
-import { colors, radii, space } from "@madhuban/theme";
+import { Feather } from "@expo/vector-icons";
+import { colors } from "@madhuban/theme";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useAuth } from "../../src/context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
+import { styles } from "../../src/styles/screens/tabs/reports.styles";
 
 const RANGES = ["Day", "Week", "Month", "Year"] as const;
 
 export default function ReportsScreen() {
+  const { role } = useAuth();
   const [range, setRange] = useState<(typeof RANGES)[number]>("Week");
 
   return (
-    <View style={styles.root}>
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Reports</Text>
+    <RolePageLayout
+      eyebrow={`${formatRoleLabel(String(role))} · Analytics`}
+      title="Reports"
+      subtitle="Snapshot performance across shifts, tasks, and approvals."
+      headerCard={
+        <View style={styles.heroCardRow}>
+          <View style={styles.heroMetric}>
+            <Text style={styles.heroMetricValue}>75%</Text>
+            <Text style={styles.heroMetricLabel}>Completion</Text>
+          </View>
+          <View style={styles.heroMetricDivider} />
+          <View style={styles.heroMetric}>
+            <Text style={[styles.heroMetricValue, { color: "#30D19B" }]}>12</Text>
+            <Text style={styles.heroMetricLabel}>In Pipeline</Text>
+          </View>
+        </View>
+      }
+    >
+      <View style={styles.root}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.rangeRow}>
-            {RANGES.map((r) => (
+            {RANGES.map((item) => (
               <Pressable
-                key={r}
-                onPress={() => setRange(r)}
-                style={[styles.chip, range === r && styles.chipActive]}
+                key={item}
+                onPress={() => setRange(item)}
+                style={[styles.chip, range === item && styles.chipActive]}
               >
-                <Text style={[styles.chipText, range === r && styles.chipTextActive]}>
-                  {r}
+                <Text style={[styles.chipText, range === item && styles.chipTextActive]}>
+                  {item}
                 </Text>
               </Pressable>
             ))}
           </View>
         </ScrollView>
-      </View>
-      <ScrollView contentContainerStyle={styles.body}>
+
         <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleWrap}>
+              <Feather name="bar-chart-2" size={16} color="#5E7393" />
+              <Text style={styles.cardTitle}>Performance Summary</Text>
+            </View>
+            <Text style={styles.cardAction}>{range}</Text>
+          </View>
           <Text style={styles.metric}>75%</Text>
-          <Text style={styles.caption}>Sample completion ({range})</Text>
+          <Text style={styles.caption}>
+            Completion rate across submitted work, approvals, and on-floor actions.
+          </Text>
         </View>
-        <Text style={styles.note}>
-          Connect supervisor/manager analytics endpoints when you are ready; the layout
-          matches the shared “Reports” pattern from design.
-        </Text>
-      </ScrollView>
-    </View>
+
+        <View style={styles.noteCard}>
+          <Text style={styles.noteTitle}>Next step for this module</Text>
+          <Text style={styles.noteText}>
+            Once you share the exact manager and supervisor dashboard sections, we can plug
+            the live analytics cards into this shell without changing the shared layout.
+          </Text>
+        </View>
+      </View>
+    </RolePageLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
-  hero: {
-    backgroundColor: colors.primary,
-    paddingTop: space.lg,
-    paddingBottom: space.md,
-    paddingHorizontal: space.lg,
-    borderBottomLeftRadius: radii.lg,
-    borderBottomRightRadius: radii.lg,
-  },
-  heroTitle: { color: "#fff", fontSize: 22, fontWeight: "800", marginBottom: space.md },
-  rangeRow: { flexDirection: "row", gap: space.sm, paddingBottom: space.sm },
-  chip: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    borderRadius: radii.full,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  chipActive: { backgroundColor: "#fff" },
-  chipText: { color: "rgba(255,255,255,0.9)", fontWeight: "700", fontSize: 13 },
-  chipTextActive: { color: colors.primary },
-  body: { padding: space.md, gap: space.md, paddingBottom: space.xl },
-  card: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.lg,
-    padding: space.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-  },
-  metric: { fontSize: 44, fontWeight: "900", color: colors.text },
-  caption: { marginTop: space.sm, color: colors.textMuted, fontSize: 13 },
-  note: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
-});

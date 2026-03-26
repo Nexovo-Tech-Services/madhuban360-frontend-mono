@@ -1,8 +1,10 @@
-import { colors, radii, space } from "@madhuban/theme";
+import { colors } from "@madhuban/theme";
 import { router } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { Button } from "../../src/components/Button";
 import { useAuth } from "../../src/context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
+import { styles } from "../../src/styles/screens/tabs/profile.styles";
 
 export default function ProfileScreen() {
   const { user, clearSession } = useAuth();
@@ -12,43 +14,38 @@ export default function ProfileScreen() {
     router.replace("/(auth)/login");
   }
 
+  const initials = (user?.name ?? "User").slice(0, 2).toUpperCase();
+  const roleLabel = formatRoleLabel(String(user?.role));
+
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.avatar}>{(user?.name ?? "?").slice(0, 2).toUpperCase()}</Text>
-        <Text style={styles.name}>{user?.name ?? "User"}</Text>
-        <Text style={styles.meta}>{user?.email ?? user?.mobile ?? ""}</Text>
-        <Text style={styles.meta}>Role: {String(user?.role ?? "—")}</Text>
-      </View>
-      <View style={styles.section}>
-        <Button title="Log out" variant="danger" onPress={logout} />
-      </View>
-    </View>
+    <RolePageLayout
+      eyebrow={`${roleLabel} · Account`}
+      title={user?.name ?? "Your Profile"}
+      subtitle={user?.email ?? user?.mobile ?? "Account details"}
+      headerCard={
+        <View style={styles.heroCard}>
+          <Text style={styles.heroCardLabel}>Signed in as</Text>
+          <Text style={styles.heroCardValue}>{roleLabel}</Text>
+        </View>
+      }
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.profileCard}>
+          <Text style={styles.avatar}>{initials}</Text>
+          <Text style={styles.name}>{user?.name ?? "User"}</Text>
+          <Text style={styles.meta}>{user?.email ?? "No email on file"}</Text>
+          <Text style={styles.meta}>{user?.mobile ?? "No mobile number on file"}</Text>
+          <Text style={styles.meta}>Role: {roleLabel}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Button title="Log out" variant="danger" onPress={logout} />
+        </View>
+      </ScrollView>
+    </RolePageLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
-  header: {
-    padding: space.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: space.xs,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: radii.full,
-    backgroundColor: colors.primary,
-    color: "#fff",
-    textAlign: "center",
-    lineHeight: 64,
-    fontSize: 20,
-    fontWeight: "900",
-    overflow: "hidden",
-  },
-  name: { fontSize: 20, fontWeight: "800", color: colors.text, marginTop: space.sm },
-  meta: { color: colors.textMuted, fontSize: 13 },
-  section: { padding: space.lg },
-});

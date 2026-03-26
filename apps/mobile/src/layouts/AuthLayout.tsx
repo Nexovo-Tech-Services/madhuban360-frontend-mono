@@ -1,8 +1,16 @@
 import { colors, typography } from "@madhuban/theme";
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MadhubanLogo from "../../assets/madhubanlogo.svg";
+import { DismissKeyboardView } from "../components/DismissKeyboardView";
+import MadhubanLogo from "../../assets/madhubanlogo2.svg";
 
 export function AuthLayout({
   cardTitle,
@@ -19,27 +27,37 @@ export function AuthLayout({
 }) {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={styles.blurBlue} />
-      <View style={styles.blurRed} />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.brandWrap}>
-          <MadhubanLogo width={160} height={116} />
-          <Text style={styles.headTitle}>Welcome Back</Text>
-          <Text style={styles.headSub}>Secure access to your workspace.</Text>
-        </View>
+        <View style={styles.blurBlue} />
+        <View style={styles.blurRed} />
+        <DismissKeyboardView style={styles.safe}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.brandWrap}>
+              <View style={styles.logoWrap}>
+                <MadhubanLogo width="100%" height="100%" />
+              </View>
+              <Text style={styles.headTitle}>Welcome Back</Text>
+              <Text style={styles.headSub}>Secure access to your workspace.</Text>
+            </View>
 
-        <View style={styles.card}>
-          {cardTitle ? <Text style={styles.cardTitle}>{cardTitle}</Text> : null}
-          {cardSubtitle ? <Text style={styles.cardSub}>{cardSubtitle}</Text> : null}
-          <View style={[styles.content, cardContentStyle]}>{children}</View>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </View>
+            <View style={styles.card}>
+              {cardTitle ? <Text style={styles.cardTitle}>{cardTitle}</Text> : null}
+              {cardSubtitle ? <Text style={styles.cardSub}>{cardSubtitle}</Text> : null}
+              <View style={[styles.content, cardContentStyle]}>{children}</View>
+              {footer ? <View style={styles.footer}>{footer}</View> : null}
+            </View>
 
-        <Text style={styles.version}>Make Properties v2.1.0</Text>
-      </ScrollView>
+            <Text style={styles.version}>Make Properties v2.1.0</Text>
+          </ScrollView>
+        </DismissKeyboardView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -77,6 +95,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
     paddingTop: 12,
+  },
+  logoWrap: {
+    width: 156,
+    height: 156,
   },
   headTitle: {
     ...typography.authHeroTitle,

@@ -1,17 +1,20 @@
 import { getMyTasks } from "@madhuban/api";
 import type { Task } from "@madhuban/types";
-import { colors, radii, space } from "@madhuban/theme";
+import { colors } from "@madhuban/theme";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useAuth } from "../../src/context/AuthContext";
+import { RolePageLayout, formatRoleLabel } from "../../src/layouts/RolePageLayout";
+import { styles } from "../../src/styles/screens/tabs/tasks.styles";
 
 export default function TasksScreen() {
+  const { role } = useAuth();
   const [tab, setTab] = useState<"active" | "completed">("active");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,16 +35,34 @@ export default function TasksScreen() {
     void load();
   }, [load]);
 
-  const filtered = tasks.filter((t) => {
-    const s = String(t.status ?? "").toUpperCase();
-    if (tab === "completed") return s === "COMPLETED";
-    return s !== "COMPLETED";
+  const filtered = tasks.filter((task) => {
+    const status = String(task.status ?? "").toUpperCase();
+    if (tab === "completed") return status === "COMPLETED";
+    return status !== "COMPLETED";
   });
 
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Tasks</Text>
+    <RolePageLayout
+      eyebrow={`${formatRoleLabel(String(role))} · Workboard`}
+      title="Tasks"
+      subtitle="Track action items, resubmissions, and team workload."
+      headerCard={
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryTile}>
+            <Text style={styles.summaryValue}>{tasks.length}</Text>
+            <Text style={styles.summaryLabel}>Total Assigned</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryTile}>
+            <Text style={[styles.summaryValue, { color: "#30D19B" }]}>
+              {tasks.filter((task) => String(task.status).toUpperCase() === "COMPLETED").length}
+            </Text>
+            <Text style={styles.summaryLabel}>Completed</Text>
+          </View>
+        </View>
+      }
+    >
+      <View style={styles.root}>
         <View style={styles.tabs}>
           <Pressable
             onPress={() => setTab("active")}
@@ -62,60 +83,40 @@ export default function TasksScreen() {
             </Text>
           </Pressable>
         </View>
-      </View>
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {filtered.length === 0 ? (
-            <Text style={styles.empty}>No tasks in this tab.</Text>
-          ) : (
-            filtered.map((t) => (
-              <View key={String(t._id ?? t.id)} style={styles.row}>
-                <Text style={styles.rowTitle}>{t.title}</Text>
-                <Text style={styles.rowMeta}>{String(t.status ?? "")}</Text>
+
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {filtered.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No tasks here yet</Text>
+                <Text style={styles.emptyText}>
+                  This tab will fill up once we connect the live dashboard workflow.
+                </Text>
               </View>
-            ))
-          )}
-        </ScrollView>
-      )}
-    </View>
+            ) : (
+              filtered.map((task) => (
+                <View key={String(task._id ?? task.id)} style={styles.row}>
+                  <View style={styles.rowTop}>
+                    <Text style={styles.rowTitle}>{task.title}</Text>
+                    <Text style={styles.rowMeta}>{String(task.status ?? "")}</Text>
+                  </View>
+                  <Text style={styles.rowHint}>
+                    {String(task.propertyName ?? task.roomNumber ?? "Zone assignment pending")}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </RolePageLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
-  header: {
-    paddingHorizontal: space.lg,
-    paddingTop: space.lg,
-    paddingBottom: space.md,
-    backgroundColor: colors.surfaceElevated,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: { fontSize: 22, fontWeight: "800", color: colors.text },
-  tabs: { flexDirection: "row", gap: space.sm, marginTop: space.md },
-  tab: {
-    paddingVertical: space.xs,
-    paddingHorizontal: space.md,
-    borderRadius: radii.full,
-    backgroundColor: colors.surface,
-  },
-  tabActive: { backgroundColor: colors.primary },
-  tabText: { color: colors.text, fontWeight: "700", fontSize: 13 },
-  tabTextActive: { color: "#fff" },
-  list: { padding: space.md, gap: space.sm, paddingBottom: space.xl },
-  row: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.md,
-    padding: space.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rowTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  rowMeta: { marginTop: 6, color: colors.textMuted, fontSize: 12 },
-  empty: { color: colors.textMuted, textAlign: "center", marginTop: space.lg },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-});

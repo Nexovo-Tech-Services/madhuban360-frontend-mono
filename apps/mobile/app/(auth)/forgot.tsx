@@ -7,14 +7,24 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../src/components/Button";
 import { TextField } from "../../src/components/TextField";
 import { AuthLayout } from "../../src/layouts/AuthLayout";
+import { getMobileOrEmailError } from "../../src/utils/validation";
 
 export default function ForgotScreen() {
   const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
 
   async function onSubmit() {
+    const nextFieldError = getMobileOrEmailError(mobile);
+
+    setFieldError(nextFieldError);
     setError(null);
+
+    if (nextFieldError) {
+      return;
+    }
+
     setLoading(true);
     try {
       await requestOtp(mobile);
@@ -37,9 +47,14 @@ export default function ForgotScreen() {
       <View style={styles.form}>
         <TextField
           value={mobile}
-          onChangeText={setMobile}
+          onChangeText={(value) => {
+            setMobile(value);
+            setFieldError(null);
+            setError(null);
+          }}
           placeholder="Mobile No. or Email"
           leftIcon={<Feather name="smartphone" size={16} color="#89A0C2" />}
+          errorText={fieldError}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
