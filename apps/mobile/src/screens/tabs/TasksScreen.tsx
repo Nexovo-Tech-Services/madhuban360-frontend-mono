@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
+import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 import { styles } from "../../styles/screens/tabs/tasks.styles";
@@ -87,10 +87,11 @@ export function TasksScreen() {
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
-          <ScrollView
+          <RefreshableScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onRefresh={load}
           >
             {filtered.length === 0 ? (
               <View style={styles.emptyCard}>
@@ -112,7 +113,7 @@ export function TasksScreen() {
                 </View>
               ))
             )}
-          </ScrollView>
+          </RefreshableScrollView>
         )}
       </View>
     </RolePageLayout>

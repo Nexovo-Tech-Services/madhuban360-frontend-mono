@@ -4,11 +4,12 @@ import { colors } from "@madhuban/theme";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { AttendanceActionCard } from "../../components/AttendanceActionCard";
+import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 
@@ -80,7 +81,13 @@ export function StaffHomeScreen() {
         </View>
       }
     >
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <RefreshableScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        onRefresh={load}
+      >
+        <AttendanceActionCard role={role as string | undefined} />
+
         <View style={styles.panel}>
           <View style={styles.panelTitleRow}>
             <Feather name="activity" size={15} color="#5E7393" />
@@ -132,7 +139,7 @@ export function StaffHomeScreen() {
             <MetricCard label="Sup. Reject" value="1" tint="#E11D48" />
           </View>
         </View>
-      </ScrollView>
+      </RefreshableScrollView>
     </RolePageLayout>
   );
 }

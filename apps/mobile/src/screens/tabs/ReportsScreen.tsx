@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 import { styles } from "../../styles/screens/tabs/reports.styles";
@@ -30,7 +31,11 @@ export function ReportsScreen() {
         </View>
       }
     >
-      <View style={styles.root}>
+      <RefreshableScrollView
+        contentContainerStyle={styles.root}
+        showsVerticalScrollIndicator={false}
+        onRefresh={async () => {}}
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.rangeRow}>
             {RANGES.map((item) => (
@@ -68,7 +73,7 @@ export function ReportsScreen() {
             analytics into this shell without coupling them to one shared dashboard entry.
           </Text>
         </View>
-      </View>
+      </RefreshableScrollView>
     </RolePageLayout>
   );
 }

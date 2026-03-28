@@ -1,5 +1,5 @@
-import { ProfileScreen } from "../../../src/screens/tabs/ProfileScreen";
+import { SupervisorProfileScreen } from "../../../src/screens/supervisor/SupervisorProfileScreen";
 
 export default function SupervisorProfileRoute() {
-  return <ProfileScreen />;
+  return <SupervisorProfileScreen />;
 }

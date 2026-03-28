@@ -1,4 +1,4 @@
-import { font, radii } from "@madhuban/theme";
+import { colors, font, radii, space } from "@madhuban/theme";
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
@@ -11,6 +11,9 @@ export const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 26,
+  },
+  contentWithTopSpacing: {
+    paddingTop: 14,
   },
   heroCard: {
     overflow: "hidden",
@@ -199,9 +202,9 @@ export const styles = StyleSheet.create({
   card: {
     borderRadius: 22,
     padding: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: "#E8EDF4",
+    borderColor: colors.border,
     shadowColor: "rgba(34, 50, 72, 0.10)",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 1,
@@ -242,6 +245,58 @@ export const styles = StyleSheet.create({
     fontFamily: font.family.bold,
     fontSize: 11,
     lineHeight: 14,
+  },
+  attendanceActionList: {
+    gap: 10,
+  },
+  attendanceActionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E8EDF4",
+    backgroundColor: "#F8FAFD",
+    padding: space.md,
+  },
+  attendanceActionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E8F1FF",
+    borderWidth: 1,
+    borderColor: "#D7E5FF",
+  },
+  attendanceActionBody: {
+    flex: 1,
+    gap: 3,
+  },
+  attendanceActionTitle: {
+    color: colors.text,
+    fontFamily: font.family.bold,
+    fontSize: 14,
+  },
+  attendanceActionSubtitle: {
+    color: colors.textMuted,
+    fontFamily: font.family.medium,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  attendanceActionButton: {
+    minWidth: 72,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceActionButtonText: {
+    color: "#FFFFFF",
+    fontFamily: font.family.bold,
+    fontSize: 12,
   },
   progressPercent: {
     color: "#286CFF",

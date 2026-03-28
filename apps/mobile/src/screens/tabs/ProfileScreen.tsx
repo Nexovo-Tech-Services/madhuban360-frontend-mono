@@ -1,6 +1,7 @@
 import { router } from "expo-router";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Button } from "../../components/Button";
+import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 import { styles } from "../../styles/screens/tabs/profile.styles";
@@ -28,10 +29,11 @@ export function ProfileScreen() {
         </View>
       }
     >
-      <ScrollView
+      <RefreshableScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onRefresh={async () => {}}
       >
         <View style={styles.profileCard}>
           <Text style={styles.avatar}>{initials}</Text>
@@ -44,7 +46,7 @@ export function ProfileScreen() {
         <View style={styles.section}>
           <Button title="Log out" variant="danger" onPress={logout} />
         </View>
-      </ScrollView>
+      </RefreshableScrollView>
     </RolePageLayout>
   );
 }

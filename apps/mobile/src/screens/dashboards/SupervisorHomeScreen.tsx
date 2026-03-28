@@ -4,9 +4,11 @@ import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AttendanceActionCard } from "../../components/AttendanceActionCard";
+import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { styles } from "../../styles/screens/tabs/home.styles";
 
@@ -135,6 +137,7 @@ function AttentionCard({
   );
 }
 
+
 function ZoneTile({
   title,
   value,
@@ -214,65 +217,69 @@ function getInitials(name: string) {
 }
 
 export function SupervisorHomeScreen() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const insets = useSafeAreaInsets();
   const displayName = user?.name?.trim() || "Rahul Type";
   const initials = getInitials(displayName);
+  const roleLabel = String(role ?? user?.role ?? "supervisor").toUpperCase();
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.heroCard, { paddingTop: insets.top + 10 }]}>
-          <HeroGradient />
+      <View style={[styles.heroCard, { paddingTop: insets.top + 10 }]}>
+        <HeroGradient />
 
-          <View style={styles.heroTopRow}>
-            <View style={styles.sitePill}>
-              <MaterialCommunityIcons name="briefcase-outline" size={12} color="#C8D3E8" />
-              <Text style={styles.sitePillText}>AMTP - BANER - DAY</Text>
-            </View>
-
-            <View style={styles.heroActions}>
-              <View style={styles.avatarCard}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-
-              <View style={styles.notificationCard}>
-                <Ionicons name="notifications-outline" size={18} color="#EFF4FF" />
-                <View style={styles.notificationDot} />
-              </View>
-            </View>
+        <View style={styles.heroTopRow}>
+          <View style={styles.sitePill}>
+            <MaterialCommunityIcons name="briefcase-outline" size={12} color="#C8D3E8" />
+            <Text style={styles.sitePillText}>AMTP - BANER - DAY</Text>
           </View>
 
-          <Text style={styles.heroTitle}>{displayName}</Text>
-
-          <View style={styles.heroStatusRow}>
-            <View style={styles.heroStatusDot} />
-            <Text style={styles.heroStatusText}>Shift in progress</Text>
-            <View style={styles.roleChip}>
-              <Text style={styles.roleChipText}>SUPERVISOR</Text>
+          <View style={styles.heroActions}>
+            <View style={styles.avatarCard}>
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
-          </View>
 
-          <View style={styles.summaryRow}>
-            {SUMMARY_STATS.map((stat) => (
-              <SummaryStat
-                key={stat.label}
-                icon={stat.icon}
-                value={stat.value}
-                label={stat.label}
-                tint={stat.tint}
-              />
-            ))}
+            <View style={styles.notificationCard}>
+              <Ionicons name="notifications-outline" size={18} color="#EFF4FF" />
+              <View style={styles.notificationDot} />
+            </View>
           </View>
         </View>
 
+        <Text style={styles.heroTitle}>{displayName}</Text>
+
+        <View style={styles.heroStatusRow}>
+          <View style={styles.heroStatusDot} />
+          <Text style={styles.heroStatusText}>Shift in progress</Text>
+          <View style={styles.roleChip}>
+            <Text style={styles.roleChipText}>{roleLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.summaryRow}>
+          {SUMMARY_STATS.map((stat) => (
+            <SummaryStat
+              key={stat.label}
+              icon={stat.icon}
+              value={stat.value}
+              label={stat.label}
+              tint={stat.tint}
+            />
+          ))}
+        </View>
+      </View>
+
+      <RefreshableScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, styles.contentWithTopSpacing]}
+        showsVerticalScrollIndicator={false}
+        onRefresh={async () => {}}
+      >
         <View style={styles.body}>
+          <AttendanceActionCard role={role as string | undefined} />
+
           <View style={styles.card}>
             <View style={styles.sectionRow}>
               <View style={styles.sectionTitleWrap}>
@@ -348,7 +355,7 @@ export function SupervisorHomeScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </RefreshableScrollView>
     </View>
   );
 }

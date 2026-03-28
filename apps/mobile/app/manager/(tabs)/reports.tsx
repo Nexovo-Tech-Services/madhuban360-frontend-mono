@@ -1,5 +1,5 @@
-import { ReportsScreen } from "../../../src/screens/tabs/ReportsScreen";
+import { SupervisorReportsScreen } from "../../../src/screens/supervisor/SupervisorReportsScreen";
 
 export default function ManagerReportsRoute() {
-  return <ReportsScreen />;
+  return <SupervisorReportsScreen />;
 }
