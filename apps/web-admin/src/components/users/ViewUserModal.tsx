@@ -246,10 +246,11 @@ const vs: Record<string, React.CSSProperties> = {
     width: "100%", maxWidth: 860,
     maxHeight: "92vh",
     background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
     borderRadius: 16,
     display: "flex", flexDirection: "column",
     overflow: "hidden",
-    boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.3)",
   },
   header: {
     display: "flex", alignItems: "flex-start",

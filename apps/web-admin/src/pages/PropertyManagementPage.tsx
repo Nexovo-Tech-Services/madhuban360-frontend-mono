@@ -6,19 +6,26 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileText,
   Filter,
   LayoutGrid,
   Map,
+  MapPin,
   Plus,
   Search,
+  Settings,
+  Shield,
+  Thermometer,
   TrendingDown,
   TrendingUp,
+  Wind,
   Wrench,
   X,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { useShellHeader } from "../context/ShellHeaderContext";
+import { useToast } from "../context/ToastContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type PropertyType = "Commercial" | "Residential" | "Industrial";
@@ -63,18 +70,34 @@ const WORK_ORDERS: WorkOrder[] = [
 ];
 
 const ASSETS: Asset[] = [
-  { id:1, name:"Chiller Unit #2",  icon:"❄️", location:"Roof West – Section A",   condition:"Excellent", lastMaint:"Oct 12, 2023", nextService:"Jan 15, 2024" },
-  { id:2, name:"Elevator B",       icon:"🛗", location:"Main Lobby – South Bank", condition:"Good",      lastMaint:"Nov 01, 2023", nextService:"Feb 05, 2024" },
-  { id:3, name:"Generator 01",     icon:"⚡", location:"Basement Mech Room",       condition:"Fair",      lastMaint:"Sep 20, 2023", nextService:"Dec 20, 2023", overdue:true },
-  { id:4, name:"Exhaust Fan #12",  icon:"💨", location:"North Wing – Attic",       condition:"Poor",      lastMaint:"Aug 13, 2023", nextService:"ASAP",        overdue:true },
+  { id:1, name:"Chiller Unit #2",  icon:"thermometer", location:"Roof West – Section A",   condition:"Excellent", lastMaint:"Oct 12, 2023", nextService:"Jan 15, 2024" },
+  { id:2, name:"Elevator B",       icon:"zap",         location:"Main Lobby – South Bank", condition:"Good",      lastMaint:"Nov 01, 2023", nextService:"Feb 05, 2024" },
+  { id:3, name:"Generator 01",     icon:"zap",         location:"Basement Mech Room",       condition:"Fair",      lastMaint:"Sep 20, 2023", nextService:"Dec 20, 2023", overdue:true },
+  { id:4, name:"Exhaust Fan #12",  icon:"wind",        location:"North Wing – Attic",       condition:"Poor",      lastMaint:"Aug 13, 2023", nextService:"ASAP",        overdue:true },
 ];
 
 const REPORTS = [
-  { id:1, name:"Q3 Financial Audit 2023",         icon:"📄", category:"Financial",      catColor:"#1d4ed8", catBg:"#eff6ff", date:"Oct 24, 2023" },
-  { id:2, name:"Monthly Energy Log - Portfolio",   icon:"⚡", category:"Sustainability",  catColor:"#15803d", catBg:"#f0fdf4", date:"Oct 20, 2023" },
-  { id:3, name:"HVAC Maintenance Performance",     icon:"⚙️", category:"Operational",    catColor:"#475569", catBg:"#f8fafc", date:"Oct 18, 2023" },
-  { id:4, name:"Security Incident Annual Review",  icon:"🛡️", category:"Operational",   catColor:"#475569", catBg:"#f8fafc", date:"Oct 15, 2023" },
+  { id:1, name:"Q3 Financial Audit 2023",         icon:"file",     category:"Financial",     catColor:"#1d4ed8", catBg:"#eff6ff", date:"Oct 24, 2023" },
+  { id:2, name:"Monthly Energy Log - Portfolio",   icon:"zap",      category:"Sustainability", catColor:"#15803d", catBg:"#f0fdf4", date:"Oct 20, 2023" },
+  { id:3, name:"HVAC Maintenance Performance",     icon:"settings", category:"Operational",   catColor:"#475569", catBg:"#f8fafc", date:"Oct 18, 2023" },
+  { id:4, name:"Security Incident Annual Review",  icon:"shield",   category:"Operational",   catColor:"#475569", catBg:"#f8fafc", date:"Oct 15, 2023" },
 ];
+
+// ─── Icon helpers (replaces emoji usage) ─────────────────────────────────────
+function AssetIcon({ icon }: { icon: string }) {
+  const map: Record<string, React.ElementType> = {
+    thermometer: Thermometer, zap: Zap, wind: Wind, wrench: Wrench,
+  };
+  const Icon = map[icon] ?? Wrench;
+  return <Icon size={15} color="#2563eb" />;
+}
+function ReportIcon({ icon }: { icon: string }) {
+  const map: Record<string, React.ElementType> = {
+    file: FileText, zap: Zap, settings: Settings, shield: Shield,
+  };
+  const Icon = map[icon] ?? FileText;
+  return <Icon size={15} color="#64748b" />;
+}
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 function Badge({ label, bg, color, border }: { label: string; bg: string; color: string; border?: string }) {
@@ -152,7 +175,13 @@ const EMPTY_PROP: AddPropForm = { name:"", propId:"", type:"", address:"", city:
 
 function AddPropertyModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<AddPropForm>(EMPTY_PROP);
+  const { showToast } = useToast();
   function set(k: keyof AddPropForm, v: string) { setForm(f => ({ ...f, [k]: v })); }
+  function handleAdd() {
+    if (!form.name) return;
+    showToast("success", "Property Added!", `"${form.name}" has been registered successfully.`);
+    onClose();
+  }
 
   return (
     <div style={ap.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -201,7 +230,7 @@ function AddPropertyModal({ onClose }: { onClose: () => void }) {
         </div>
         <div style={ap.footer}>
           <button style={ap.cancelBtn} onClick={onClose}>Cancel</button>
-          <button style={ap.saveBtn}>Add Property</button>
+          <button style={ap.saveBtn} onClick={handleAdd}>Add Property</button>
         </div>
       </div>
     </div>
@@ -240,7 +269,7 @@ function PropertyCard({ p }: { p: Property }) {
       </div>
       <div style={{ padding:"12px 14px 14px" }}>
         <div style={{ fontSize:14, fontWeight:700, color:"var(--c-text)", marginBottom:3 }}>{p.name}</div>
-        <div style={{ fontSize:12, color:"var(--c-text-faint)", marginBottom:10 }}>📍 {p.address}</div>
+        <div style={{ fontSize:12, color:"var(--c-text-faint)", marginBottom:10, display:"flex", alignItems:"center", gap:4 }}><MapPin size={11}/> {p.address}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
           {[["TOTAL UNITS", p.totalUnits], ["UNITS SOLD", p.unitsSold], ["UNITS UNSOLD", p.unitsUnsold]].map(([k,v])=>(
             <div key={String(k)}>
@@ -442,7 +471,7 @@ function AssetTrackingTab() {
               <tr key={a.id} style={{ borderBottom:"1px solid var(--c-row-border)" }}>
                 <td style={wo.td}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:32, height:32, borderRadius:8, background:"var(--c-input-bg)", border:"1px solid var(--c-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{a.icon}</div>
+                    <div style={{ width:32, height:32, borderRadius:8, background:"var(--c-input-bg)", border:"1px solid var(--c-card-border)", display:"flex", alignItems:"center", justifyContent:"center" }}><AssetIcon icon={a.icon}/></div>
                     <div>
                       <div style={{ fontSize:13.5, fontWeight:600, color:"var(--c-text)" }}>{a.name}</div>
                       <div style={{ fontSize:11.5, color:"var(--c-text-faint)" }}>ID: FACI-{String(1000+a.id).padStart(4,"0")}</div>
@@ -488,7 +517,7 @@ function ReportsTab() {
           <p style={{ margin:"3px 0 0", fontSize:13, color:"#2563eb" }}>Monitor facility performance, maintenance trends, and energy efficiency</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button style={{ ...pl.select, padding:"7px 14px", cursor:"pointer" }}>📅 Last 30 Days ▾</button>
+          <button style={{ ...pl.select, padding:"7px 14px", cursor:"pointer", display:"inline-flex", alignItems:"center", gap:6 }}><BarChart2 size={13}/> Last 30 Days ▾</button>
           <button style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 16px", fontSize:13, fontWeight:600, border:"1px solid var(--c-input-border)", borderRadius:8, background:"var(--c-card)", color:"var(--c-text-2)", cursor:"pointer" }}>
             <Download size={14}/> Export All
           </button>
@@ -571,7 +600,7 @@ function ReportsTab() {
               <tr key={r.id} style={{ borderBottom:"1px solid var(--c-row-border)" }}>
                 <td style={wo.td}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <span style={{ fontSize:16 }}>{r.icon}</span>
+                    <div style={{ width:28, height:28, borderRadius:7, background:"var(--c-input-bg)", border:"1px solid var(--c-card-border)", display:"flex", alignItems:"center", justifyContent:"center" }}><ReportIcon icon={r.icon}/></div>
                     <span style={{ fontSize:13.5, fontWeight:600, color:"var(--c-text)" }}>{r.name}</span>
                   </div>
                 </td>
@@ -647,9 +676,9 @@ const pg: Record<string, React.CSSProperties> = {
   pageHeader: { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, marginBottom:20, flexWrap:"wrap" },
   pageTitle:  { margin:0, fontSize:22, fontWeight:800, color:"var(--c-text)", letterSpacing:"-0.3px" },
   pageSub:    { margin:"4px 0 0", fontSize:13, color:"var(--c-text-muted)" },
-  addBtn:     { display:"inline-flex", alignItems:"center", gap:6, padding:"8px 16px", fontSize:13.5, fontWeight:600, border:"none", borderRadius:8, background:"#0f172a", color:"#fff", cursor:"pointer" },
+  addBtn:     { display:"inline-flex", alignItems:"center", gap:6, padding:"8px 16px", fontSize:13.5, fontWeight:600, border:"none", borderRadius:8, background:"#2563eb", color:"#fff", cursor:"pointer" },
   tabBtn:     { display:"inline-flex", alignItems:"center", gap:7, padding:"9px 18px", fontSize:13.5, fontWeight:500, border:"1px solid var(--c-input-border)", borderRadius:9, background:"var(--c-card)", color:"var(--c-text-muted)", cursor:"pointer" },
-  tabBtnActive: { background:"var(--c-text)", color:"#fff", borderColor:"var(--c-text)" },
+  tabBtnActive: { background:"#2563eb", color:"#ffffff", borderColor:"#2563eb" },
 };
 const pl: Record<string, React.CSSProperties> = {
   searchBar: { display:"flex", alignItems:"center", gap:8, background:"var(--c-card)", border:"1px solid var(--c-input-border)", borderRadius:8, padding:"7px 12px", minWidth:240 },
@@ -668,14 +697,14 @@ const sh: Record<string, React.CSSProperties> = {
 const wo: Record<string, React.CSSProperties> = {
   filterLabel: { fontSize:11.5, fontWeight:700, color:"var(--c-text-faint)", textTransform:"uppercase" as const, letterSpacing:"0.5px" },
   select: { padding:"7px 10px", fontSize:13, border:"1px solid var(--c-input-border)", borderRadius:8, outline:"none", color:"var(--c-text-2)", background:"var(--c-card)", cursor:"pointer" },
-  createBtn: { display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", fontSize:13, fontWeight:600, border:"none", borderRadius:8, background:"#0f172a", color:"#fff", cursor:"pointer", marginLeft:"auto" as unknown as undefined },
+  createBtn: { display:"inline-flex", alignItems:"center", gap:6, padding:"7px 14px", fontSize:13, fontWeight:600, border:"none", borderRadius:8, background:"#2563eb", color:"#fff", cursor:"pointer", marginLeft:"auto" as unknown as undefined },
   th: { padding:"10px 16px", textAlign:"left" as const, fontSize:11, fontWeight:700, color:"var(--c-text-faint)", letterSpacing:"0.6px", textTransform:"uppercase" as const, background:"var(--c-table-head)", borderBottom:"1px solid var(--c-row-border)" },
   td: { padding:"12px 16px", verticalAlign:"middle" as const },
   actionLink: { fontSize:13, fontWeight:600, color:"#2563eb", background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:5 },
 };
 const ap: Record<string, React.CSSProperties> = {
   overlay: { position:"fixed", inset:0, background:"rgba(15,23,42,0.45)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24 },
-  panel: { width:"100%", maxWidth:620, maxHeight:"92vh", background:"var(--c-card)", borderRadius:16, display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 24px 64px rgba(0,0,0,0.22)" },
+  panel: { width:"100%", maxWidth:620, maxHeight:"92vh", background:"var(--c-card)", border:"1px solid var(--c-card-border)", borderRadius:16, display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 24px 64px rgba(0,0,0,0.3)" },
   header: { display:"flex", alignItems:"flex-start", justifyContent:"space-between", padding:"22px 24px 14px", borderBottom:"1px solid var(--c-divider)", gap:12 },
   title: { margin:0, fontSize:18, fontWeight:800, color:"var(--c-text)" },
   sub: { margin:"4px 0 0", fontSize:12.5, color:"var(--c-text-muted)" },
@@ -686,5 +715,5 @@ const ap: Record<string, React.CSSProperties> = {
   input: { padding:"9px 12px", fontSize:13.5, border:"1px solid var(--c-input-border)", borderRadius:8, outline:"none", color:"var(--c-text)", background:"var(--c-input-bg)", width:"100%", boxSizing:"border-box" as const },
   footer: { display:"flex", justifyContent:"flex-end", gap:10, padding:"14px 24px", borderTop:"1px solid var(--c-divider)" },
   cancelBtn: { padding:"9px 20px", fontSize:13.5, fontWeight:600, border:"1px solid var(--c-input-border)", borderRadius:8, background:"var(--c-card)", color:"var(--c-text-2)", cursor:"pointer" },
-  saveBtn: { padding:"9px 22px", fontSize:13.5, fontWeight:600, border:"none", borderRadius:8, background:"#0f172a", color:"#fff", cursor:"pointer" },
+  saveBtn: { padding:"9px 22px", fontSize:13.5, fontWeight:600, border:"none", borderRadius:8, background:"#2563eb", color:"#fff", cursor:"pointer" },
 };

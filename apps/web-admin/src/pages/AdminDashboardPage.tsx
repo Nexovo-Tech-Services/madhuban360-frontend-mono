@@ -230,7 +230,7 @@ export function AdminDashboardPage() {
           badgeColor="green"
           extra={
             <div style={{ marginTop: 10 }}>
-              <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", overflow: "hidden" }}>
+              <div style={{ height: 6, borderRadius: 99, background: "var(--c-input-border)", overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${metrics.attendancePercent ?? 0}%`, background: "#10b981", borderRadius: 99 }} />
               </div>
             </div>
@@ -253,8 +253,8 @@ export function AdminDashboardPage() {
               <span key={l} style={cs.chartAxisLabel}>{l}</span>
             ))}
           </div>
-          <div style={{ marginTop: 16, borderTop: "1px solid #f1f5f9", paddingTop: 14, display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>$42,000</span>
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--c-divider)", paddingTop: 14, display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "var(--c-text)" }}>$42,000</span>
             <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>+12.5% from last month</span>
           </div>
         </div>
@@ -275,8 +275,8 @@ export function AdminDashboardPage() {
               <span key={m} style={cs.chartAxisLabel}>{m}</span>
             ))}
           </div>
-          <div style={{ marginTop: 16, borderTop: "1px solid #f1f5f9", paddingTop: 14, display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>$128,500</span>
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--c-divider)", paddingTop: 14, display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "var(--c-text)" }}>$128,500</span>
             <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>+8.2% Year-to-date</span>
           </div>
         </div>
@@ -302,8 +302,8 @@ export function AdminDashboardPage() {
                   <AlertTriangle size={14} color={alert.level === "URGENT" ? "#dc2626" : "#ca8a04"} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a" }}>{alert.title}</div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--c-text)" }}>{alert.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--c-text-muted)", marginTop: 2 }}>
                     Reported by: {alert.reporter} · {alert.time}
                   </div>
                 </div>
@@ -323,8 +323,8 @@ export function AdminDashboardPage() {
               <div key={item.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.dot, marginTop: 5, flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "#0f172a", lineHeight: 1.4 }}>{item.text}</div>
-                  <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 3 }}>{item.meta}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--c-text)", lineHeight: 1.4 }}>{item.text}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--c-text-faint)", marginTop: 3 }}>{item.meta}</div>
                 </div>
               </div>
             ))}
@@ -349,13 +349,13 @@ const cs: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: 22,
     fontWeight: 800,
-    color: "#0f172a",
+    color: "var(--c-text)",
     letterSpacing: "-0.3px",
   },
   pageSubtitle: {
     margin: "4px 0 0",
     fontSize: 13,
-    color: "#64748b",
+    color: "var(--c-text-muted)",
   },
   actionBtn: {
     display: "inline-flex",
@@ -364,10 +364,10 @@ const cs: Record<string, React.CSSProperties> = {
     padding: "8px 14px",
     fontSize: 13,
     fontWeight: 600,
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--c-input-border)",
     borderRadius: 8,
-    background: "#ffffff",
-    color: "#334155",
+    background: "var(--c-card)",
+    color: "var(--c-text-2)",
     cursor: "pointer",
     transition: "background 0.15s",
   },
@@ -378,8 +378,8 @@ const cs: Record<string, React.CSSProperties> = {
     marginBottom: 20,
   },
   metricCard: {
-    background: "#ffffff",
-    border: "1px solid #e9eef5",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
     borderRadius: 14,
     padding: 18,
   },
@@ -393,20 +393,20 @@ const cs: Record<string, React.CSSProperties> = {
   },
   metricLabel: {
     fontSize: 12.5,
-    color: "#64748b",
+    color: "var(--c-text-muted)",
     fontWeight: 500,
     marginBottom: 4,
   },
   metricValue: {
     fontSize: 28,
     fontWeight: 800,
-    color: "#0f172a",
+    color: "var(--c-text)",
     letterSpacing: "-0.5px",
     lineHeight: 1.1,
   },
   metricSub: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "var(--c-text-faint)",
     marginTop: 4,
   },
   badge: {
@@ -428,8 +428,8 @@ const cs: Record<string, React.CSSProperties> = {
     alignItems: "flex-start",
   },
   card: {
-    background: "#ffffff",
-    border: "1px solid #e9eef5",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
     borderRadius: 14,
     padding: 20,
   },
@@ -442,16 +442,16 @@ const cs: Record<string, React.CSSProperties> = {
   cardTitle: {
     fontSize: 14.5,
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--c-text)",
   },
   cardMeta: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "var(--c-text-faint)",
     fontWeight: 500,
   },
   chartAxisLabel: {
     fontSize: 11,
-    color: "#94a3b8",
+    color: "var(--c-text-faint)",
     fontWeight: 500,
   },
   linkBtn: {

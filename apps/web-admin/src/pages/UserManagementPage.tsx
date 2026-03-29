@@ -23,6 +23,7 @@ import {
   type UserStatus,
 } from "../components/users/types";
 import { useShellHeader } from "../context/ShellHeaderContext";
+import { useToast } from "../context/ToastContext";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const INITIAL_USERS: User[] = [
@@ -87,6 +88,7 @@ export function UserManagementPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [modal, setModal] = useState<ModalState>({ type: "none" });
+  const { showToast } = useToast();
 
   useShellHeader({
     title: "User Management",
@@ -113,14 +115,18 @@ export function UserManagementPage() {
 
   function handleAdd(u: User) {
     setUsers((prev) => [...prev, u]);
+    showToast("success", "User Added!", `${u.name} has been successfully created.`);
   }
 
   function handleSaveEdit(updated: User) {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    showToast("success", "Updated Successfully", `${updated.name}'s profile has been saved.`);
   }
 
   function handleDelete(id: number) {
+    const user = users.find((u) => u.id === id);
     setUsers((prev) => prev.filter((u) => u.id !== id));
+    showToast("error", "User Deleted", `${user?.name ?? "User"} has been permanently removed.`);
   }
 
   return (

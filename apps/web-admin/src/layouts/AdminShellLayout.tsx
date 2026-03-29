@@ -1,3 +1,4 @@
+import containerLogo from "../assets/Container.svg";
 import {
   BarChart2,
   Bell,
@@ -18,14 +19,14 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useShellHeaderValue } from "../context/ShellHeaderContext";
 import { useTheme } from "../context/ThemeContext";
 import "./admin-shell.css";
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
 const PRIMARY_NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/users", label: "User Management", icon: Users },
   { to: "/properties", label: "Property Management", icon: Building2 },
   { to: "/tasks", label: "Task Manager", icon: ClipboardList },
@@ -69,10 +70,17 @@ function SidebarLink({
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar() {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    // Clear any persisted session here if needed, then redirect to login
+    navigate("/login", { replace: true });
+  }
+
   return (
     <aside className="shell-sidebar">
       <div className="shell-sidebar__brand">
-        <img src="/madhubanlogo.svg" alt="Madhuban" className="shell-sidebar__logo" />
+        <img src={containerLogo} alt="Madhuban" className="shell-sidebar__logo" />
       </div>
 
       <nav className="shell-nav">
@@ -94,7 +102,7 @@ function Sidebar() {
           <span className="shell-sidebar__profile-name">Harish Sawant</span>
           <span className="shell-sidebar__profile-role">Head Administrator</span>
         </div>
-        <button className="shell-sidebar__logout" title="Log out">
+        <button className="shell-sidebar__logout" title="Log out" onClick={handleLogout}>
           <LogOut size={16} />
         </button>
       </div>

@@ -22,13 +22,14 @@
 .shell-sidebar::-webkit-scrollbar { display: none; }
 
 .shell-sidebar__brand {
-  padding: 18px 20px 14px;
+  padding: 3px 4px 3px;
   border-bottom: 1px solid var(--c-sidebar-border);
   margin-bottom: 8px;
 }
 .shell-sidebar__logo {
-  height: 34px;
-  width: auto;
+  width: 164px;
+  height: auto;
+  max-height: 152px;
   object-fit: contain;
   display: block;
 }
