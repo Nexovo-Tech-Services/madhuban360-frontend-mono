@@ -29,6 +29,14 @@ function getStatusPillStyle(tone: "success" | "warning" | undefined) {
   };
 }
 
+function readText(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function readNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 export function ProfileScreen() {
   const { user, role, clearSession } = useAuth();
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
@@ -75,37 +83,50 @@ export function ProfileScreen() {
     router.replace("/(auth)/login");
   }
 
+  const safeStaffAssignment = staffProfile?.assignment_details;
+  const safeStaffStats = staffProfile?.stats;
+  const safeStaffFunctions = Array.isArray(staffProfile?.assigned_functions)
+    ? staffProfile.assigned_functions
+    : [];
+  const safeStaffSkills = Array.isArray(staffProfile?.skills_and_certifications)
+    ? staffProfile.skills_and_certifications.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )
+    : [];
+  const safeManagerInfo = managerProfile?.profile;
+  const safeManagerBadges = managerProfile?.badges;
+  const safeManagerAccount = managerProfile?.account;
+
   const roleLabel = formatRoleLabel(
-    String(staffProfile?.role ?? managerProfile?.profile.role ?? profile?.role ?? user?.role),
+    String(staffProfile?.role ?? safeManagerInfo?.role ?? profile?.role ?? user?.role),
   );
   const name = String(
     staffProfile?.full_name ??
-      managerProfile?.profile.full_name ??
+      safeManagerInfo?.full_name ??
       profile?.name ??
       user?.name ??
       "Rahul Dhumal",
   );
-  const employeeId =
-    staffProfile?.staff_id ?? managerProfile?.profile.manager_id ?? profile?.id ?? user?.id
-      ? `EMP-ID: ${String(staffProfile?.staff_id ?? managerProfile?.profile.manager_id ?? profile?.id ?? user?.id)}`
-      : "EMP-ID: MB-0042";
+  const employeeIdValue =
+    staffProfile?.staff_id ?? safeManagerInfo?.manager_id ?? profile?.id ?? user?.id;
+  const employeeId = employeeIdValue ? `EMP-ID: ${String(employeeIdValue)}` : "EMP-ID: MB-0042";
 
   const profileFacts = isStaff
     ? [
         {
           icon: <Feather name="check" size={16} color="#162236" />,
           label: "Assigned Checker",
-          value: staffProfile?.assignment_details.assigned_checker_name ?? "Unassigned",
+          value: readText(safeStaffAssignment?.assigned_checker_name, "Unassigned"),
         },
         {
           icon: <Feather name="clipboard" size={16} color="#94A3B8" />,
           label: "Default Tasks / Day",
-          value: `${staffProfile?.assignment_details.default_tasks_per_day ?? 0} tasks`,
+          value: `${readNumber(safeStaffAssignment?.default_tasks_per_day)} tasks`,
         },
         {
           icon: <MaterialCommunityIcons name="cash-fast" size={16} color="#D8A548" />,
           label: "Attendance Incentive",
-          value: staffProfile?.assignment_details.is_eligible_for_attendance_incentive
+          value: Boolean(safeStaffAssignment?.is_eligible_for_attendance_incentive)
             ? "Eligible"
             : "Not Eligible",
           valueTone: "success" as const,
@@ -116,14 +137,14 @@ export function ProfileScreen() {
           {
             icon: <Feather name="briefcase" size={16} color="#162236" />,
             label: "Shift",
-            value: managerProfile?.badges.shift ?? "Unassigned",
+            value: readText(safeManagerBadges?.shift, "Unassigned"),
           },
           {
             icon: <Feather name="activity" size={16} color="#94A3B8" />,
             label: "Status",
-            value: managerProfile?.badges.status ?? "Inactive",
+            value: readText(safeManagerBadges?.status, "Inactive"),
             valueTone:
-              String(managerProfile?.badges.status ?? "")
+              String(safeManagerBadges?.status ?? "")
                 .trim()
                 .toUpperCase()
                 .includes("ACTIVE")
@@ -133,49 +154,54 @@ export function ProfileScreen() {
           {
             icon: <Feather name="user" size={16} color="#162236" />,
             label: "Reporting To",
-            value: managerProfile?.account.reportingTo ?? "Not assigned",
+            value: readText(safeManagerAccount?.reportingTo, "Not assigned"),
           },
           {
             icon: <Feather name="phone" size={16} color="#94A3B8" />,
             label: "App Version",
-            value: managerProfile?.account.appVersion ?? "--",
+            value: readText(safeManagerAccount?.appVersion, "--"),
           },
         ]
       : [
-        {
-          icon: <Feather name="check" size={16} color="#162236" />,
-          label: "Assigned Checker",
-          value: String((profile?.reportsTo as string | undefined) ?? "Rahul Tupe"),
-        },
+          {
+            icon: <Feather name="check" size={16} color="#162236" />,
+            label: "Assigned Checker",
+            value: String((profile?.reportsTo as string | undefined) ?? "Rahul Tupe"),
+          },
         ];
 
   const functionGroups = isStaff
-    ? (staffProfile?.assigned_functions ?? []).map((group) => ({
-        title: group.function_name,
+    ? safeStaffFunctions.map((group) => ({
+        title: readText(group.function_name, "Assigned Function"),
         subtitle: group.is_primary ? "Primary Function" : "Secondary Function",
-        status: group.status,
-        tone: group.status.toLowerCase().includes("support") ? ("warning" as const) : ("success" as const),
+        status: readText(group.status, "Assigned"),
+        tone: readText(group.status, "").toLowerCase().includes("support")
+          ? ("warning" as const)
+          : ("success" as const),
         accent: group.is_primary ? "#FFC83D" : "#2962FF",
         icon: group.is_primary ? ("folder" as const) : ("shield" as const),
-        tasks: group.zones.map((zone) => ({
-          text: `${zone.name} - ${zone.floor}`,
-          tone: zone.priority,
-          toneColor:
-            zone.priority.toLowerCase() === "critical"
-              ? "#F04438"
-              : zone.priority.toLowerCase() === "high"
-                ? "#FF8B2C"
-                : "#2962FF",
-          icon: "map-pin",
-        })),
+        tasks: (Array.isArray(group.zones) ? group.zones : []).map((zone) => {
+          const priority = readText(zone.priority, "");
+          return {
+            text: `${readText(zone.name, "Zone")} - ${readText(zone.floor, "Floor")}`,
+            tone: priority,
+            toneColor:
+              priority.toLowerCase() === "critical"
+                ? "#F04438"
+                : priority.toLowerCase() === "high"
+                  ? "#FF8B2C"
+                  : "#2962FF",
+            icon: "map-pin",
+          };
+        }),
       }))
     : isManager
       ? [
           {
-            title: managerProfile?.account.propertyLabel ?? "Assigned Property",
-            subtitle: managerProfile?.profile.email ?? "Manager account",
-            status: managerProfile?.badges.status ?? "INACTIVE",
-            tone: String(managerProfile?.badges.status ?? "")
+            title: readText(safeManagerAccount?.propertyLabel, "Assigned Property"),
+            subtitle: readText(safeManagerInfo?.email, "Manager account"),
+            status: readText(safeManagerBadges?.status, "INACTIVE"),
+            tone: String(safeManagerBadges?.status ?? "")
               .trim()
               .toUpperCase()
               .includes("ACTIVE")
@@ -185,8 +211,8 @@ export function ProfileScreen() {
             icon: "shield" as const,
             tasks: [
               {
-                text: `Shift - ${managerProfile?.badges.shift ?? "Unassigned"}`,
-                tone: managerProfile?.badges.status ?? "",
+                text: `Shift - ${readText(safeManagerBadges?.shift, "Unassigned")}`,
+                tone: readText(safeManagerBadges?.status, ""),
                 toneColor: "#2962FF",
                 icon: "clock",
               },
@@ -197,29 +223,29 @@ export function ProfileScreen() {
 
   const stats = isStaff
     ? [
-        { label: "Functions", value: String(staffProfile?.stats.functions ?? 0) },
-        { label: "Zones", value: String(staffProfile?.stats.zones ?? 0) },
-        { label: "Location", value: String(staffProfile?.stats.locations ?? 0) },
+        { label: "Functions", value: String(readNumber(safeStaffStats?.functions)) },
+        { label: "Zones", value: String(readNumber(safeStaffStats?.zones)) },
+        { label: "Location", value: String(readNumber(safeStaffStats?.locations)) },
       ]
     : isManager
       ? [
-          { label: "Role", value: String(managerProfile?.profile.role ?? "MANAGER") },
-          { label: "Shift", value: String(managerProfile?.badges.shift ?? "--") },
-          { label: "Status", value: String(managerProfile?.badges.status ?? "--") },
+          { label: "Role", value: String(safeManagerInfo?.role ?? "MANAGER") },
+          { label: "Shift", value: String(safeManagerBadges?.shift ?? "--") },
+          { label: "Status", value: String(safeManagerBadges?.status ?? "--") },
         ]
       : [];
 
   const skills = isStaff
-    ? staffProfile?.skills_and_certifications ?? []
+    ? safeStaffSkills
     : isManager
-      ? [managerProfile?.account.propertyLabel, managerProfile?.profile.email].filter(
+      ? [safeManagerAccount?.propertyLabel, safeManagerInfo?.email].filter(
           (value): value is string => Boolean(value),
         )
       : [];
 
   return (
     <RolePageLayout
-      eyebrow="Staff · Profile"
+      eyebrow={`${roleLabel} · Profile`}
       title={name}
       subtitle={employeeId}
       headerCard={
@@ -381,7 +407,7 @@ export function ProfileScreen() {
             ) : skills.length > 0 ? (
               skills.map((skill, index) => (
                 <View key={`${skill}-${index}`} style={styles.skillChip}>
-                  <Feather name={"award"} size={12} color="#2962FF" />
+                  <Feather name="award" size={12} color="#2962FF" />
                   <Text style={styles.skillChipText}>{skill}</Text>
                 </View>
               ))

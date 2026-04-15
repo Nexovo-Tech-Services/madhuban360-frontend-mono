@@ -533,7 +533,15 @@ function ReviewTaskModal({
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 16) + 72 }]}>
+        <View style={styles.modalSheet}>
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={[
+              styles.modalScrollContent,
+              { paddingBottom: Math.max(insets.bottom, 16) + 20 },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.modalHeaderRow}>
             <View>
               <Text style={styles.modalTitle}>Review Task</Text>
@@ -684,24 +692,27 @@ function ReviewTaskModal({
             )}
           </View>
 
-          <Pressable
-            style={[
-              styles.confirmButton,
-              sendBack ? styles.confirmButtonSendBack : styles.confirmButtonApprove,
-              confirmDisabled && styles.confirmButtonDisabled,
-            ]}
-            disabled={confirmDisabled}
-            onPress={onConfirm}
-          >
-            <Ionicons
-              name={sendBack ? "return-up-back-outline" : "checkmark"}
-              size={18}
-              color="#FFFFFF"
-            />
-            <Text style={styles.confirmButtonText} numberOfLines={1}>
-              {sendBack ? "Confirm Send Back" : "Confirm Approval"}
-            </Text>
-          </Pressable>
+          </ScrollView>
+          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Pressable
+              style={[
+                styles.confirmButton,
+                sendBack ? styles.confirmButtonSendBack : styles.confirmButtonApprove,
+                confirmDisabled && styles.confirmButtonDisabled,
+              ]}
+              disabled={confirmDisabled}
+              onPress={onConfirm}
+            >
+              <Ionicons
+                name={sendBack ? "return-up-back-outline" : "checkmark"}
+                size={18}
+                color="#FFFFFF"
+              />
+              <Text style={styles.confirmButtonText} numberOfLines={1}>
+                {sendBack ? "Confirm Send Back" : "Confirm Approval"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -1493,6 +1504,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: "hidden",
+  },
+  modalScroll: {
+    flexShrink: 1,
+  },
+  modalScrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
   },
@@ -1618,7 +1635,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.72)",
+    backgroundColor: "rgba(15,23,42,0.16)",
   },
   evidencePreviewFilled: {
     backgroundColor: "#F8FAFC",
@@ -1753,10 +1770,16 @@ const styles = StyleSheet.create({
     fontFamily: font.family.medium,
     fontSize: 14,
   },
+  modalFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E7EDF5",
+    backgroundColor: "#FFFFFF",
+  },
   confirmButton: {
     height: 50,
     borderRadius: 14,
-    marginTop: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

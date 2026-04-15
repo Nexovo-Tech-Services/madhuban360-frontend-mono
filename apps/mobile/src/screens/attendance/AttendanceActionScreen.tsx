@@ -39,6 +39,12 @@ type CoordinatesState = {
   longitude: number;
 };
 
+type AttendanceSnapshot = {
+  workDate?: string | null;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+};
+
 function getScreenCopy(mode: AttendanceMode) {
   return {
     title: mode === "check-in" ? "Daily Check-In" : "Daily Check-Out",
@@ -62,6 +68,7 @@ function formatTime(date: Date) {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Asia/Kolkata",
   });
 }
 
@@ -71,7 +78,29 @@ function formatDate(date: Date) {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "Asia/Kolkata",
   });
+}
+
+function asValidDate(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getFriendlyErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const message = error.message?.trim();
+  if (!message) return fallback;
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("network request failed") ||
+    normalized.includes("network error") ||
+    normalized.includes("fetch")
+  ) {
+    return "Unable to reach the API right now. Please verify the app build is using the live server and try again.";
+  }
+  return message;
 }
 
 function InfoTile({
@@ -107,6 +136,8 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
   const [insideGeofence, setInsideGeofence] = useState(true);
   const [selfie, setSelfie] = useState<CapturedSelfie | null>(null);
   const [capturedAt, setCapturedAt] = useState<Date | null>(null);
+  const [actionAt, setActionAt] = useState<Date | null>(null);
+  const [attendanceSnapshot, setAttendanceSnapshot] = useState<AttendanceSnapshot | null>(null);
   const [coords, setCoords] = useState<CoordinatesState | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -144,6 +175,9 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
         longitude: Number(position.coords.longitude.toFixed(4)),
       };
       setCoords(nextCoords);
+      if (mode === "check-out") {
+        setActionAt(new Date());
+      }
       setInsideGeofence(true);
       return nextCoords;
     } catch (error) {
@@ -191,8 +225,10 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
         quality: 0.7,
       });
       setCoords(nextCoords);
+      const now = new Date();
       setSelfie({ uri: photo.uri, width: photo.width, height: photo.height });
-      setCapturedAt(new Date());
+      setCapturedAt(now);
+      setActionAt(now);
       setConfirmed(false);
       setCameraOpen(false);
     } catch (error) {
@@ -208,8 +244,9 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
     setStatusMessage(null);
     try {
       const nextCoords = coords ?? (await ensureLocation());
+      const responseSnapshotBase: AttendanceSnapshot = {};
       if (isSupervisor) {
-        await submitSupervisorAttendance({
+        const response = await submitSupervisorAttendance({
           action: mode === "check-in" ? "check_in" : "check_out",
           latitude: String(nextCoords.latitude),
           longitude: String(nextCoords.longitude),
@@ -222,8 +259,11 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
                 }
               : undefined,
         });
+        responseSnapshotBase.workDate = response.workDate;
+        responseSnapshotBase.checkInAt = response.checkInAt;
+        responseSnapshotBase.checkOutAt = response.checkOutAt;
       } else if (isStaff) {
-        await submitStaffAttendance({
+        const response = await submitStaffAttendance({
           action: mode === "check-in" ? "check_in" : "check_out",
           latitude: String(nextCoords.latitude),
           longitude: String(nextCoords.longitude),
@@ -236,16 +276,19 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
                 }
               : undefined,
         });
+        responseSnapshotBase.workDate = response.workDate;
+        responseSnapshotBase.checkInAt = response.checkInAt;
+        responseSnapshotBase.checkOutAt = response.checkOutAt;
       } else if (mode === "check-in") {
         await checkIn("Head Office, Shivaji Nagar");
       } else {
         await checkOut();
       }
+      setAttendanceSnapshot(responseSnapshotBase);
+      setActionAt((current) => current ?? new Date());
       setConfirmed(true);
     } catch (error) {
-      setStatusMessage(
-        error instanceof Error ? error.message : `Unable to ${mode.replace("-", " ")} right now.`,
-      );
+      setStatusMessage(getFriendlyErrorMessage(error, `Unable to ${mode.replace("-", " ")} right now.`));
       return;
     } finally {
       setSubmitting(false);
@@ -255,8 +298,14 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
     }, 1200);
   }
 
-  const previewTime = capturedAt ? formatTime(capturedAt) : "--";
-  const previewDate = capturedAt ? formatDate(capturedAt) : "--";
+  const actionTimestamp =
+    (mode === "check-in" ? attendanceSnapshot?.checkInAt : attendanceSnapshot?.checkOutAt) ??
+    attendanceSnapshot?.workDate ??
+    actionAt ??
+    capturedAt;
+  const resolvedActionDate = asValidDate(actionTimestamp);
+  const previewTime = resolvedActionDate ? formatTime(resolvedActionDate) : "--";
+  const previewDate = resolvedActionDate ? formatDate(resolvedActionDate) : "--";
   const coordinatesText = coords ? `${coords.latitude} N, ${coords.longitude} E` : "Location pending";
 
   return (

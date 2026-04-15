@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSession = useCallback(async (nextToken: string, nextUser: AuthUser) => {
+    configureAuthTokenGetter(() => nextToken);
     setToken(nextToken);
     setUser(nextUser);
     await AsyncStorage.multiSet([
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearSession = useCallback(async () => {
+    configureAuthTokenGetter(() => null);
     setToken(null);
     setUser(null);
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);

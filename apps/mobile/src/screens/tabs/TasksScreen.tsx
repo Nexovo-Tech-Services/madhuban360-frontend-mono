@@ -35,6 +35,7 @@ interface TaskItem {
   title: string;
   location: string;
   zone: string;
+  taskDate: string;
   timeStart: string;
   timeEnd?: string;
   priority: TaskPriority;
@@ -92,6 +93,33 @@ function formatTime(value: string | null | undefined) {
   });
 }
 
+function formatTaskDate(value: string | null | undefined) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function getTaskErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const message = error.message?.trim();
+  if (!message) return fallback;
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("network request failed") ||
+    normalized.includes("network error") ||
+    normalized.includes("fetch")
+  ) {
+    return "Unable to reach the API right now. Please try again after checking the current app build.";
+  }
+  return message;
+}
+
 function mapTask(item: StaffTasksResponse["tasks"][number]): TaskItem {
   const raw = item as StaffTasksResponse["tasks"][number] & {
     beforePhotoUrl?: string | null;
@@ -107,6 +135,7 @@ function mapTask(item: StaffTasksResponse["tasks"][number]): TaskItem {
     title: item.masterTask.title,
     location: locationParts.join(" · ") || "Unassigned Location",
     zone: item.masterTask.zone ?? "UNASSIGNED ZONE",
+    taskDate: formatTaskDate(item.taskDate),
     timeStart: formatTime(item.masterTask.startTime) || "--",
     timeEnd: formatTime(item.masterTask.endTime) || undefined,
     priority: normalizePriority(item),
@@ -186,6 +215,11 @@ function TaskCard({
         <Text style={s.locationText}>{task.location}</Text>
       </View>
 
+      <View style={s.dateRow}>
+        <Ionicons name="calendar-outline" size={14} color="#7C8AA2" />
+        <Text style={s.dateText}>{task.taskDate}</Text>
+      </View>
+
       {task.decisionNote ? (
         <View style={s.notePill}>
           <Text style={s.notePillText}>{task.decisionNote}</Text>
@@ -239,6 +273,7 @@ function TaskDetailModal({
   onAdvanceAfterBefore,
   onSubmitAfter,
   onClose,
+  errorMessage,
 }: {
   task: TaskItem | null;
   visible: boolean;
@@ -251,6 +286,7 @@ function TaskDetailModal({
   onAdvanceAfterBefore: () => void;
   onSubmitAfter: () => void;
   onClose: () => void;
+  errorMessage: string | null;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -347,6 +383,8 @@ function TaskDetailModal({
             ) : null}
           </ScrollView>
 
+          {errorMessage ? <Text style={ms.errorText}>{errorMessage}</Text> : null}
+
           {step === "detail" ? (
             <Pressable style={ms.bottomBtn} onPress={onStartTask}>
               <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
@@ -393,7 +431,10 @@ export function TasksScreen() {
   const [afterUri, setAfterUri] = useState<string | null>(null);
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturingPhoto, setCapturingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
   const insets = useSafeAreaInsets();
@@ -428,7 +469,10 @@ export function TasksScreen() {
     setAfterUri(selectedTask?.afterPhotoUrl ?? null);
     setCaptureTarget(null);
     setCameraOpen(false);
+    setCameraReady(false);
+    setCapturingPhoto(false);
     setSubmitting(false);
+    setUploadError(null);
   }, [selectedTask?.id]);
 
   async function handleBeforeUpload(task: TaskItem, photoUri: string) {
@@ -491,25 +535,38 @@ export function TasksScreen() {
   async function openCamera(target: CaptureTarget) {
     const permission = cameraPermission?.granted ? cameraPermission : await requestCameraPermission();
     if (!permission?.granted) return;
+    setUploadError(null);
     setCaptureTarget(target);
+    setCameraReady(false);
     setCameraOpen(true);
   }
 
   async function capturePhoto() {
-    if (!cameraRef.current || !captureTarget) return;
-    const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
-    if (captureTarget === "before") setBeforeUri(photo.uri);
-    if (captureTarget === "after") setAfterUri(photo.uri);
-    setCameraOpen(false);
-    setCaptureTarget(null);
+    if (!cameraRef.current || !captureTarget || !cameraReady || capturingPhoto) return;
+    try {
+      setCapturingPhoto(true);
+      setUploadError(null);
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      if (captureTarget === "before") setBeforeUri(photo.uri);
+      if (captureTarget === "after") setAfterUri(photo.uri);
+      setCameraOpen(false);
+      setCaptureTarget(null);
+    } catch (error) {
+      setUploadError(getTaskErrorMessage(error, "Unable to capture photo right now."));
+    } finally {
+      setCapturingPhoto(false);
+    }
   }
 
   async function submitBefore() {
     if (!selectedTask || !beforeUri) return;
     setSubmitting(true);
+    setUploadError(null);
     try {
       await handleBeforeUpload(selectedTask, beforeUri);
       setStep("after");
+    } catch (error) {
+      setUploadError(getTaskErrorMessage(error, "Unable to submit the before photo right now."));
     } finally {
       setSubmitting(false);
     }
@@ -518,9 +575,17 @@ export function TasksScreen() {
   async function submitAfter() {
     if (!selectedTask || !afterUri) return;
     setSubmitting(true);
+    setUploadError(null);
     try {
       await handleAfterUpload(selectedTask, afterUri);
       setSelectedTask(null);
+    } catch (error) {
+      setUploadError(
+        getTaskErrorMessage(
+          error,
+          "Unable to submit the after photo right now.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -597,14 +662,32 @@ export function TasksScreen() {
 
       <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
         <View style={ms.cameraScreen}>
-          <CameraView ref={cameraRef} facing="back" style={ms.cameraView} />
+          <CameraView
+            ref={cameraRef}
+            facing="back"
+            style={ms.cameraView}
+            onCameraReady={() => setCameraReady(true)}
+          />
           <View style={[ms.cameraHeader, { paddingTop: insets.top + 12 }]}>
             <Pressable style={ms.cameraBackButton} onPress={() => setCameraOpen(false)}>
               <Feather name="x" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
+          {!cameraReady ? (
+            <View style={ms.cameraStatusBadge}>
+              <Text style={ms.cameraStatusText}>Preparing camera...</Text>
+            </View>
+          ) : null}
           <View style={[ms.cameraFooter, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <Pressable style={ms.captureButtonOuter} onPress={() => void capturePhoto()}>
+            <Pressable
+              style={[
+                ms.captureButtonOuter,
+                (!cameraReady || capturingPhoto) && ms.captureButtonOuterDisabled,
+              ]}
+              onPress={() => void capturePhoto()}
+              disabled={!cameraReady || capturingPhoto}
+              android_disableSound
+            >
               <View style={ms.captureButtonInner} />
             </Pressable>
           </View>
@@ -623,6 +706,7 @@ export function TasksScreen() {
         onAdvanceAfterBefore={() => void submitBefore()}
         onSubmitAfter={() => void submitAfter()}
         onClose={() => setSelectedTask(null)}
+        errorMessage={uploadError}
       />
     </>
   );
@@ -799,8 +883,18 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 5,
   },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
   locationText: {
     color: "#7C8AA2",
+    fontFamily: font.family.medium,
+    fontSize: 12,
+  },
+  dateText: {
+    color: "#64748B",
     fontFamily: font.family.medium,
     fontSize: 12,
   },
@@ -1049,17 +1143,23 @@ const ms = StyleSheet.create({
   },
   cameraPreviewShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,23,42,0.22)",
+    backgroundColor: "rgba(15,23,42,0.08)",
   },
   cameraPreviewLabel: {
     color: "#10B981",
     fontFamily: font.family.bold,
     fontSize: 15,
+    textShadowColor: "rgba(15,23,42,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   cameraRetakeHint: {
     color: "#FFFFFF",
     fontFamily: font.family.medium,
     fontSize: 11,
+    textShadowColor: "rgba(15,23,42,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   bottomBtn: {
     flexDirection: "row",
@@ -1080,6 +1180,15 @@ const ms = StyleSheet.create({
     fontFamily: font.family.bold,
     fontSize: 15,
   },
+  errorText: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    color: "#DC2626",
+    fontFamily: font.family.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+  },
   cameraScreen: {
     flex: 1,
     backgroundColor: "#000000",
@@ -1094,6 +1203,8 @@ const ms = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     alignItems: "flex-end",
+    zIndex: 3,
+    elevation: 3,
   },
   cameraBackButton: {
     width: 40,
@@ -1109,6 +1220,25 @@ const ms = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: "center",
+    zIndex: 3,
+    elevation: 3,
+  },
+  cameraStatusBadge: {
+    position: "absolute",
+    top: "50%",
+    alignSelf: "center",
+    transform: [{ translateY: -24 }],
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: "rgba(15,23,42,0.7)",
+    zIndex: 2,
+    elevation: 2,
+  },
+  cameraStatusText: {
+    color: "#FFFFFF",
+    fontFamily: font.family.bold,
+    fontSize: 12,
   },
   captureButtonOuter: {
     width: 84,
@@ -1118,6 +1248,10 @@ const ms = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.78)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  captureButtonOuterDisabled: {
+    opacity: 0.6,
   },
   captureButtonInner: {
     width: 62,

@@ -20,11 +20,11 @@ export function normalizeMobile(mobile: string): string {
 }
 
 export async function mobileLogin(
-  mobile: string,
+  identifier: string,
   password: string,
 ): Promise<{ token: string; user: AuthUser }> {
   const API_BASE_URL = getApiBaseUrl();
-  const trimmed = String(mobile || "").trim();
+  const trimmed = String(identifier || "").trim();
   const normalized = normalizeMobile(trimmed);
   const isEmail = trimmed.includes("@");
 
@@ -36,11 +36,8 @@ export async function mobileLogin(
   }
 
   const payload = {
+    email: isEmail ? trimmed : normalized,
     password: password.trim(),
-    email: isEmail ? trimmed : `${normalized}@mobile`,
-    username: isEmail ? trimmed : normalized,
-    phone: normalized || undefined,
-    mobile: normalized || undefined,
   };
   const body = JSON.stringify(payload);
 
@@ -67,7 +64,7 @@ export async function mobileLogin(
     const fallback = getDevTokenFallback();
     const fallbackUser: AuthUser = {
       name: isEmail ? trimmed.split("@")[0] : "User",
-      mobile: normalized,
+      ...(isEmail ? { email: trimmed } : { mobile: normalized }),
     };
     return { token: fallback, user: fallbackUser };
   }
@@ -77,7 +74,7 @@ export async function mobileLogin(
       (lastData.message as string) ||
       (lastData.error as string) ||
       (lastRes?.status === 401
-        ? "Invalid mobile number or password"
+        ? "Invalid email or password"
         : `Request failed (${lastRes?.status})`);
     throw new Error(msg);
   }
@@ -92,7 +89,11 @@ export async function mobileLogin(
 
   const user =
     (lastData.data as { user?: AuthUser } | undefined)?.user ??
-    (lastData.user as AuthUser) ?? { name: "User", mobile: normalized };
+    (lastData.user as AuthUser) ??
+    ({
+      name: "User",
+      ...(isEmail ? { email: trimmed } : { mobile: normalized }),
+    } as AuthUser);
   return { token, user };
 }
 

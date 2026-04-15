@@ -313,9 +313,26 @@ async function appendUploadableFile(
     "uri" in file &&
     typeof file.uri === "string"
   ) {
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
-    formData.append(fieldName, blob, file.name);
+    const normalizedUri =
+      file.uri.startsWith("file://") || file.uri.startsWith("content://")
+        ? file.uri
+        : `file://${file.uri}`;
+    (
+      formData as unknown as {
+        append(
+          name: string,
+          value: {
+            uri: string;
+            type: string;
+            name: string;
+          },
+        ): void;
+      }
+    ).append(fieldName, {
+      uri: normalizedUri,
+      type: file.type || "image/jpeg",
+      name: file.name || `${fieldName}-${Date.now()}.jpg`,
+    });
     return;
   }
 

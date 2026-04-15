@@ -36,7 +36,7 @@ import {
   type RoleRecord,
   type SupervisorRecord,
 } from "@madhuban/api";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import {
   SkeletonTableRows,
   SkeletonTheme,
@@ -179,39 +179,51 @@ export function UserManagementPage() {
     }
   }
 
+  const refreshReferenceData = useCallback(async () => {
+    try {
+      const [managerList, supervisorList, roleList] = await Promise.all([
+        getManagers(),
+        getSupervisors(),
+        getRoles(),
+      ]);
+      setManagers(managerList);
+      setSupervisors(supervisorList);
+      setRoles(roleList);
+    } catch (e) {
+      console.error(e);
+      showToast("error", "Failed to load user references", e instanceof Error ? e.message : "Please try again.");
+    }
+  }, [showToast]);
+
+  async function refreshAll() {
+    await Promise.all([refreshUsers(), refreshReferenceData()]);
+  }
+
+  async function openAddModal() {
+    await refreshReferenceData();
+    setModal({ type: "add" });
+  }
+
+  async function openEditModal(user: User) {
+    await refreshReferenceData();
+    setModal({ type: "edit", user });
+  }
+
   useEffect(() => {
     void refreshUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const [managerList, supervisorList, roleList] = await Promise.all([
-          getManagers(),
-          getSupervisors(),
-          getRoles(),
-        ]);
-        if (!active) return;
-        setManagers(managerList);
-        setSupervisors(supervisorList);
-        setRoles(roleList);
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    void refreshReferenceData();
+  }, [refreshReferenceData]);
 
   useShellHeader({
     title: "User Management",
     badge: `${users.length} USERS TOTAL`,
     showSearch: false,
     actions: (
-      <button style={ts.addBtn} onClick={() => setModal({ type: "add" })}>
+      <button style={ts.addBtn} onClick={() => void openAddModal()}>
         <UserPlus size={15} /> Add New User
       </button>
     ),
@@ -232,7 +244,7 @@ export function UserManagementPage() {
   async function handleAdd(u: User) {
     try {
       await createUser(buildUserPayload(u, "create"));
-      await refreshUsers();
+      await refreshAll();
       showToast("success", "User Added!", `${u.name} has been successfully created.`);
     } catch (e) {
       showToast("error", "Failed to create user", e instanceof Error ? e.message : "Please try again.");
@@ -242,7 +254,7 @@ export function UserManagementPage() {
   async function handleSaveEdit(updated: User) {
     try {
       await updateUser(updated.apiId, buildUserPayload(updated, "update"));
-      await refreshUsers();
+      await refreshAll();
       showToast("success", "Updated Successfully", `${updated.name}'s profile has been saved.`);
     } catch (e) {
       showToast("error", "Failed to update user", e instanceof Error ? e.message : "Please try again.");
@@ -252,7 +264,7 @@ export function UserManagementPage() {
   async function handleDelete(u: User) {
     try {
       await deleteUser(u.apiId);
-      await refreshUsers();
+      await refreshAll();
       showToast("error", "User Deleted", `${u.name} has been permanently removed.`);
     } catch (e) {
       showToast("error", "Failed to delete user", e instanceof Error ? e.message : "Please try again.");
@@ -290,7 +302,7 @@ export function UserManagementPage() {
                 setRoleFilter("");
                 setStatusFilter("");
                 setPage(1);
-                void refreshUsers();
+                void refreshAll();
               }}
               title="Refresh"
             >
@@ -341,7 +353,7 @@ export function UserManagementPage() {
                     <ActionBtn title="View" onClick={() => setModal({ type: "view", user })}>
                       <Eye size={14} />
                     </ActionBtn>
-                    <ActionBtn title="Edit" onClick={() => setModal({ type: "edit", user })}>
+                    <ActionBtn title="Edit" onClick={() => void openEditModal(user)}>
                       <Pencil size={14} />
                     </ActionBtn>
                     <ActionBtn title="Delete" danger onClick={() => setModal({ type: "delete", user })}>
@@ -400,7 +412,7 @@ export function UserManagementPage() {
         <ViewUserModal
           user={modal.user}
           onClose={() => setModal({ type: "none" })}
-          onEdit={() => setModal({ type: "edit", user: modal.user })}
+          onEdit={() => void openEditModal(modal.user)}
         />
       )}
       {modal.type === "edit" && (
