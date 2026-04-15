@@ -25,9 +25,11 @@ export {
   normalizeTask,
   type TaskFilters,
   getMasterTasks,
+  type MasterTaskRecord,
   getMasterTaskById,
   getStaffMasterTasks,
   assignStaffMasterTask,
+  type StaffMasterTaskRecord,
   runDailyTasksCron,
   getDailyStaffTasks,
 } from "./tasks";

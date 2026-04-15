@@ -14,15 +14,17 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { Task as ApiTask } from "@madhuban/types";
 import { useShellHeader } from "../context/ShellHeaderContext";
 import { useToast } from "../context/ToastContext";
 import {
+  assignStaffMasterTask,
   createTask,
-  getTasks,
+  getMasterTasks,
+  getProperties,
+  getStaffMasterTasks,
   getUsersForAssignee,
-  updateTask,
-  updateTaskStatus,
+  type MasterTaskRecord,
+  type StaffMasterTaskRecord,
 } from "@madhuban/api";
 import { SkeletonBlock, SkeletonCardList, SkeletonTheme } from "../components/Skeleton";
 import { getRequiredError, validationStyles } from "../utils/validation";
@@ -49,6 +51,8 @@ interface ActivityEntry {
 
 interface Task {
   id: string;
+  assignmentId?: string;
+  masterTaskId?: string;
   title: string;
   description: string;
   priority: TaskPriority;
@@ -68,6 +72,19 @@ interface Task {
 }
 
 type AssigneeOption = { id: string; name: string };
+type ZoneOption = { id: string; label: string };
+type ManagerTab = "master" | "assigned";
+
+interface MasterTaskListItem {
+  id: string;
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  zoneLabel?: string;
+  startTime?: string;
+  endTime?: string;
+  materials?: string[];
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const INITIAL_TASKS: Task[] = [
@@ -363,46 +380,60 @@ function TaskDetailModal({
 }
 
 // ─── Create / Edit Task Modal ─────────────────────────────────────────────────
-interface TaskForm {
+interface MasterTaskForm {
   title: string; category: string; description: string;
-  assigneeId: string; assigneeName: string; priority: "HIGH" | "MEDIUM" | "LOW";
-  area: string; frequency: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  zoneId: string; materials: string;
   startTime: string; endTime: string; duration: string;
 }
 
-const EMPTY_FORM: TaskForm = {
+const EMPTY_MASTER_FORM: MasterTaskForm = {
   title: "", category: "Maintenance", description: "",
-  assigneeId: "", assigneeName: "", priority: "MEDIUM",
-  area: "Outside Main Door", frequency: "Daily, Weekly, Weekends",
+  priority: "MEDIUM",
+  zoneId: "", materials: "",
   startTime: "", endTime: "", duration: "",
+};
+
+interface AssignmentForm {
+  assigneeId: string;
+  assigneeName: string;
+  assignmentStartDate: string;
+  assignmentEndDate: string;
+}
+
+const EMPTY_ASSIGNMENT_FORM: AssignmentForm = {
+  assigneeId: "",
+  assigneeName: "",
+  assignmentStartDate: "",
+  assignmentEndDate: "",
 };
 
 function CreateTaskModal({
   initial,
-  assignees,
+  zones,
   onClose,
   onSave,
 }: {
-  initial?: TaskForm;
-  assignees: AssigneeOption[];
+  initial?: MasterTaskForm;
+  zones: ZoneOption[];
   onClose: () => void;
-  onSave: (f: TaskForm) => void;
+  onSave: (f: MasterTaskForm) => void;
 }) {
-  const [form, setForm] = useState<TaskForm>(initial ?? EMPTY_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof TaskForm, string>>>({});
-  function set<K extends keyof TaskForm>(k: K, v: TaskForm[K]) { setForm(f => ({ ...f, [k]: v })); }
-  function setField<K extends keyof TaskForm>(k: K, v: TaskForm[K]) {
+  const [form, setForm] = useState<MasterTaskForm>(initial ?? EMPTY_MASTER_FORM);
+  const [errors, setErrors] = useState<Partial<Record<keyof MasterTaskForm, string>>>({});
+  function set<K extends keyof MasterTaskForm>(k: K, v: MasterTaskForm[K]) { setForm(f => ({ ...f, [k]: v })); }
+  function setField<K extends keyof MasterTaskForm>(k: K, v: MasterTaskForm[K]) {
     set(k, v);
     setErrors((current) => ({ ...current, [k]: undefined }));
   }
 
-  function validate(next: TaskForm) {
-    const nextErrors: Partial<Record<keyof TaskForm, string>> = {
+  function validate(next: MasterTaskForm) {
+    const nextErrors: Partial<Record<keyof MasterTaskForm, string>> = {
       title: getRequiredError(next.title, "Please enter the task name.") ?? undefined,
       description: getRequiredError(next.description, "Please enter the task description.") ?? undefined,
-      assigneeId: getRequiredError(next.assigneeId, "Please select an assignee.") ?? undefined,
-      area: getRequiredError(next.area, "Please select the area.") ?? undefined,
-      frequency: getRequiredError(next.frequency, "Please select the frequency.") ?? undefined,
+      zoneId: getRequiredError(next.zoneId, "Please select a zone.") ?? undefined,
+      startTime: getRequiredError(next.startTime, "Please select the task start time.") ?? undefined,
+      endTime: getRequiredError(next.endTime, "Please select the task end time.") ?? undefined,
     };
     setErrors(nextErrors);
     return Object.values(nextErrors).every((value) => !value);
@@ -415,7 +446,7 @@ function CreateTaskModal({
     onClose();
   }
 
-  const pBtns: { label: TaskForm["priority"]; color: string; bg: string }[] = [
+  const pBtns: { label: MasterTaskForm["priority"]; color: string; bg: string }[] = [
     { label: "HIGH",   color: "#dc2626", bg: "#fef2f2" },
     { label: "MEDIUM", color: "#d97706", bg: "#fffbeb" },
     { label: "LOW",    color: "#16a34a", bg: "#f0fdf4" },
@@ -443,28 +474,9 @@ function CreateTaskModal({
             <textarea style={{ ...cf.input, ...(errors.description ? validationStyles.inputErrorBorder : null), height: 72, resize: "vertical" as const }} placeholder="Describe the work to be performed..." value={form.description} onChange={e => setField("description", e.target.value)} />
           </CFField>
 
-          {/* Assignment & Priority */}
-          <SectionHdr label="ASSIGNMENT & PRIORITY" />
+          {/* Priority */}
+          <SectionHdr label="PRIORITY" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <CFField label="Assignee" error={errors.assigneeId}>
-              <select
-                style={{ ...cf.input, ...(errors.assigneeId ? validationStyles.inputErrorBorder : null) }}
-                value={form.assigneeId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const found = assignees.find((a) => a.id === id);
-                  setField("assigneeId", id);
-                  setField("assigneeName", found?.name ?? "");
-                }}
-              >
-                <option value="">Select staff member</option>
-                {assignees.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </CFField>
             <CFField label="Priority">
               <div style={{ display: "flex", gap: 6 }}>
                 {pBtns.map(p => (
@@ -480,15 +492,14 @@ function CreateTaskModal({
           {/* Location & Schedule */}
           <SectionHdr label="LOCATION & SCHEDULE" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
-            <CFField label="Area" error={errors.area}>
-              <select style={{ ...cf.input, ...(errors.area ? validationStyles.inputErrorBorder : null) }} value={form.area} onChange={e => setField("area", e.target.value)}>
-                {["Outside Main Door", "Floor 1", "Floor 2", "Rooftop", "Basement", "Conference Hall"].map(a => <option key={a} value={a}>{a}</option>)}
+            <CFField label="Zone" error={errors.zoneId}>
+              <select style={{ ...cf.input, ...(errors.zoneId ? validationStyles.inputErrorBorder : null) }} value={form.zoneId} onChange={e => setField("zoneId", e.target.value)}>
+                <option value="">Select zone</option>
+                {zones.map(zone => <option key={zone.id} value={zone.id}>{zone.label}</option>)}
               </select>
             </CFField>
-            <CFField label="Frequency" error={errors.frequency}>
-              <select style={{ ...cf.input, ...(errors.frequency ? validationStyles.inputErrorBorder : null) }} value={form.frequency} onChange={e => setField("frequency", e.target.value)}>
-                {["Daily", "Weekly", "Daily, Weekly, Weekends", "Monthly", "Once"].map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
+            <CFField label="Materials">
+              <input style={cf.input} placeholder="e.g. mop, bucket, detergent" value={form.materials} onChange={e => setField("materials", e.target.value)} />
             </CFField>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -496,7 +507,6 @@ function CreateTaskModal({
             <CFField label="End Time"><input style={cf.input} type="time" value={form.endTime} onChange={e => setField("endTime", e.target.value)} /></CFField>
             <CFField label="Duration"><input style={cf.input} placeholder="e.g. 30 min" value={form.duration} onChange={e => setField("duration", e.target.value)} /></CFField>
           </div>
-
           {/* Attachments */}
           <SectionHdr label="ATTACHMENTS" />
           <div style={cf.dropzone}>
@@ -508,7 +518,102 @@ function CreateTaskModal({
           {/* Footer */}
           <div style={cf.footer}>
             <button type="button" style={cf.cancelBtn} onClick={onClose}>Cancel</button>
-            <button type="submit" style={cf.saveBtn}><Plus size={15} /> Create Task</button>
+            <button type="submit" style={cf.saveBtn}><Plus size={15} /> Create Master Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AssignTaskModal({
+  task,
+  assignees,
+  onClose,
+  onSave,
+}: {
+  task: MasterTaskListItem;
+  assignees: AssigneeOption[];
+  onClose: () => void;
+  onSave: (f: AssignmentForm) => void;
+}) {
+  const [form, setForm] = useState<AssignmentForm>(EMPTY_ASSIGNMENT_FORM);
+  const [errors, setErrors] = useState<Partial<Record<keyof AssignmentForm, string>>>({});
+
+  function setField<K extends keyof AssignmentForm>(key: K, value: AssignmentForm[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
+  function validate(next: AssignmentForm) {
+    const nextErrors: Partial<Record<keyof AssignmentForm, string>> = {
+      assigneeId: getRequiredError(next.assigneeId, "Please select an assignee.") ?? undefined,
+      assignmentStartDate:
+        getRequiredError(next.assignmentStartDate, "Please select the assignment start date.") ?? undefined,
+      assignmentEndDate:
+        getRequiredError(next.assignmentEndDate, "Please select the assignment end date.") ?? undefined,
+    };
+    setErrors(nextErrors);
+    return Object.values(nextErrors).every((value) => !value);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate(form)) return;
+    onSave(form);
+    onClose();
+  }
+
+  return (
+    <div style={cf.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={cf.panel}>
+        <div style={cf.header}>
+          <h2 style={cf.title}>Assign Master Task</h2>
+          <button style={cf.closeBtn} onClick={onClose}><X size={17} /></button>
+        </div>
+        <form onSubmit={handleSubmit} style={cf.form}>
+          <SectionHdr label="MASTER TASK" />
+          <div style={af.summaryCard}>
+            <div style={af.summaryTitle}>{task.title}</div>
+            <div style={af.summaryText}>{task.description}</div>
+            <div style={af.metaRow}>
+              <span>{task.zoneLabel ?? "No zone"}</span>
+              <span>{task.startTime ?? "No start"} - {task.endTime ?? "No end"}</span>
+            </div>
+          </div>
+
+          <SectionHdr label="ASSIGNMENT" />
+          <CFField label="Assignee" error={errors.assigneeId}>
+            <select
+              style={{ ...cf.input, ...(errors.assigneeId ? validationStyles.inputErrorBorder : null) }}
+              value={form.assigneeId}
+              onChange={(e) => {
+                const id = e.target.value;
+                const found = assignees.find((a) => a.id === id);
+                setField("assigneeId", id);
+                setField("assigneeName", found?.name ?? "");
+              }}
+            >
+              <option value="">Select staff member</option>
+              {assignees.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </CFField>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <CFField label="Assignment Start Date" error={errors.assignmentStartDate}>
+              <input style={{ ...cf.input, ...(errors.assignmentStartDate ? validationStyles.inputErrorBorder : null) }} type="date" value={form.assignmentStartDate} onChange={e => setField("assignmentStartDate", e.target.value)} />
+            </CFField>
+            <CFField label="Assignment End Date" error={errors.assignmentEndDate}>
+              <input style={{ ...cf.input, ...(errors.assignmentEndDate ? validationStyles.inputErrorBorder : null) }} type="date" value={form.assignmentEndDate} onChange={e => setField("assignmentEndDate", e.target.value)} />
+            </CFField>
+          </div>
+
+          <div style={cf.footer}>
+            <button type="button" style={cf.cancelBtn} onClick={onClose}>Cancel</button>
+            <button type="submit" style={cf.saveBtn}><Plus size={15} /> Assign Task</button>
           </div>
         </form>
       </div>
@@ -571,70 +676,82 @@ function TaskManagerSkeleton() {
 type ModalState =
   | { type: "none" }
   | { type: "create" }
+  | { type: "assign"; task: MasterTaskListItem }
   | { type: "edit"; task: Task }
   | { type: "view"; task: Task };
 
 export function TaskManagerPage() {
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [masterTasks, setMasterTasks] = useState<MasterTaskListItem[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
+  const [zones, setZones] = useState<ZoneOption[]>([]);
+  const [activeTab, setActiveTab] = useState<ManagerTab>("master");
 
   useShellHeader({ showSearch: true });
 
-  function statusFromApi(s: string | undefined): TaskStatus {
-    const raw = String(s ?? "").toUpperCase().replace(/\s/g, "_");
-    if (raw === "IN_PROGRESS") return "inprogress";
-    if (raw === "REVIEW" || raw === "PENDING_APPROVAL") return "review";
-    if (raw === "COMPLETED") return "completed";
-    return "todo";
-  }
-
-  function uiStatusToApi(s: TaskStatus): string {
-    if (s === "inprogress") return "IN_PROGRESS";
-    if (s === "review") return "REVIEW";
-    if (s === "completed") return "COMPLETED";
-    return "TO_DO";
-  }
-
-  function toUiTask(t: ApiTask, idx: number): Task {
-    const assigneeName = t.assignee?.name ?? "Unassigned";
+  function toUiAssignmentTask(t: StaffMasterTaskRecord, idx: number): Task {
+    const assigneeName = t.staff?.name ?? "Unassigned";
     const initials = assigneeName
       .split(" ")
       .filter(Boolean)
-      .map((w) => w[0])
+      .map((w: string) => w[0])
       .slice(0, 2)
       .join("")
       .toUpperCase();
     const colors = ["#2563eb", "#6366f1", "#0ea5e9", "#7c3aed", "#d97706", "#16a34a", "#64748b"];
-    const id = String(t._id ?? t.id ?? "");
     return {
-      id,
-      title: String(t.title ?? t.taskName ?? "Untitled Task"),
-      description: String(t.description ?? ""),
-      priority: normalizePriority(t.priority),
-      status: statusFromApi(String(t.status ?? "")),
+      id: String(t.id),
+      assignmentId: String(t.id),
+      masterTaskId: t.masterTask ? String(t.masterTask.id) : undefined,
+      title: String(t.masterTask?.title ?? "Untitled Task"),
+      description: String(t.masterTask?.description ?? ""),
+      priority: normalizePriority(t.masterTask?.priority),
+      status: t.isActive ? "todo" : "completed",
       assignedTo: {
-        id: t.assigneeId ?? undefined,
+        id: String(t.staffId),
         name: assigneeName,
         initials: initials || "U",
         color: colors[idx % colors.length],
+        role: t.staff?.supervisor?.name ? "Staff" : undefined,
       },
-      location: t.locationFloor ?? t.roomNumber ?? t.propertyName ?? undefined,
-      startTime: t.startTime != null ? String(t.startTime) : undefined,
-      endTime: t.endTime != null ? String(t.endTime) : undefined,
-      duration: t.timeDuration != null ? String(t.timeDuration) : undefined,
-      meta: t.dueDate ? String(t.dueDate) : undefined,
-      metaType: t.dueDate ? "date" : undefined,
+      location: t.masterTask?.zone?.zone ?? undefined,
+      startTime: t.masterTask?.startTime ?? undefined,
+      endTime: t.masterTask?.endTime ?? undefined,
+      duration: undefined,
+      meta: t.endDate ? String(t.endDate).slice(0, 10) : undefined,
+      metaType: t.endDate ? "date" : undefined,
+      extension:
+        t.masterTask?.materials && t.masterTask.materials.length
+          ? t.masterTask.materials.join(", ")
+          : undefined,
+    };
+  }
+
+  function toMasterTaskItem(task: MasterTaskRecord): MasterTaskListItem {
+    return {
+      id: String(task.id),
+      title: task.title,
+      description: task.description ?? "",
+      priority: normalizePriority(task.priority),
+      zoneLabel: task.zone?.zone ?? undefined,
+      startTime: task.startTime ?? undefined,
+      endTime: task.endTime ?? undefined,
+      materials: task.materials ?? undefined,
     };
   }
 
   async function refreshTasks() {
     try {
       setLoading(true);
-      const list = await getTasks();
-      setTasks((Array.isArray(list) ? list : []).map((t, idx) => toUiTask(t as ApiTask, idx)));
+      const [assignmentList, masterTaskList] = await Promise.all([
+        getStaffMasterTasks(),
+        getMasterTasks(),
+      ]);
+      setTasks((Array.isArray(assignmentList) ? assignmentList : []).map((t, idx) => toUiAssignmentTask(t, idx)));
+      setMasterTasks((Array.isArray(masterTaskList) ? masterTaskList : []).map(toMasterTaskItem));
     } catch (e) {
       console.error(e);
       showToast("error", "Failed to load tasks", e instanceof Error ? e.message : "Please try again.");
@@ -659,63 +776,85 @@ export function TaskManagerPage() {
     }
   }
 
+  async function refreshZones() {
+    try {
+      const properties = await getProperties();
+      const nextZones = properties.flatMap((property) =>
+        property.floors.flatMap((floor) =>
+          (floor.floorZones ?? []).map((zone) => ({
+            id: String(zone.id),
+            label: `${property.name} / Floor ${floor.floorNo} / ${zone.zone}`,
+          })),
+        ),
+      );
+      setZones(nextZones);
+    } catch (e) {
+      console.error(e);
+      setZones([]);
+    }
+  }
+
   useEffect(() => {
     void refreshAssignees();
+    void refreshZones();
     void refreshTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleCreate(form: TaskForm) {
+  async function handleCreate(form: MasterTaskForm) {
     try {
       await createTask({
         title: form.title,
         description: form.description,
-        assigneeId: form.assigneeId,
+        zoneId: form.zoneId ? Number(form.zoneId) : undefined,
         priority: form.priority,
-        locationFloor: form.area,
-        frequency: form.frequency,
         startTime: form.startTime,
         endTime: form.endTime,
-        timeDuration: form.duration,
+        materials: form.materials
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
       });
       await refreshTasks();
-      showToast("success", "Task Created!", `"${form.title}" has been added to the board.`);
+      showToast("success", "Master Task Created!", `"${form.title}" is now available for assignment.`);
     } catch (e) {
       showToast("error", "Failed to create task", e instanceof Error ? e.message : "Please try again.");
     }
   }
 
-  async function handleEdit(form: TaskForm) {
-    if (modal.type !== "edit") return;
+  async function handleAssign(task: MasterTaskListItem, form: AssignmentForm) {
     try {
-      await updateTask(modal.task.id, {
-        title: form.title,
-        description: form.description,
-        assigneeId: form.assigneeId,
-        priority: form.priority,
-        locationFloor: form.area,
-        frequency: form.frequency,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        timeDuration: form.duration,
-        status: uiStatusToApi(modal.task.status),
+      await assignStaffMasterTask({
+        staffId: Number(form.assigneeId),
+        masterTaskId: Number(task.id),
+        startDate: form.assignmentStartDate,
+        endDate: form.assignmentEndDate,
       });
       await refreshTasks();
-      showToast("success", "Task Updated!", "Changes saved successfully.");
+      setActiveTab("assigned");
+      showToast("success", "Task Assigned!", `"${task.title}" has been assigned successfully.`);
     } catch (e) {
-      showToast("error", "Failed to update task", e instanceof Error ? e.message : "Please try again.");
+      showToast("error", "Failed to assign task", e instanceof Error ? e.message : "Please try again.");
     }
   }
 
+  async function handleEdit(form: MasterTaskForm) {
+    void form;
+    showToast(
+      "error",
+      "Task editing is not available",
+      "The admin API currently documents create and assign flows only.",
+    );
+  }
+
   async function handleComplete(task: Task) {
-    try {
-      await updateTaskStatus(task.id, "COMPLETED");
-      await refreshTasks();
-      setModal({ type: "none" });
-      showToast("success", "Task Completed!", `"${task.title}" marked as complete.`);
-    } catch (e) {
-      showToast("error", "Failed to complete task", e instanceof Error ? e.message : "Please try again.");
-    }
+    void task;
+    setModal({ type: "none" });
+    showToast(
+      "error",
+      "Status updates are not available",
+      "The current admin API flow does not document assignment status updates yet.",
+    );
   }
 
   const grouped = useMemo(
@@ -737,10 +876,12 @@ export function TaskManagerPage() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--c-text)", letterSpacing: "-0.3px" }}>Task Manager</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--c-text-muted)" }}>Manage and track daily tasks across users.</p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--c-text-muted)" }}>
+            Create reusable master tasks first, then assign them to staff from a separate workflow.
+          </p>
         </div>
         <button style={pg.createBtn} onClick={() => setModal({ type: "create" })}>
-          <Plus size={15} /> Create Task
+          <Plus size={15} /> Create Master Task
         </button>
       </div>
 
@@ -757,60 +898,129 @@ export function TaskManagerPage() {
         </div>
       </div>
 
-      {/* Grouped task sections */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {grouped.map(col => (
-          <div key={col.id}>
-            {/* Section header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "var(--c-text)", letterSpacing: "0.5px" }}>{col.label}</span>
-              <span style={{ fontSize: 11.5, fontWeight: 700, padding: "1px 8px", borderRadius: 20, background: "var(--c-input-bg)", color: col.color, border: "1px solid var(--c-card-border)" }}>
-                {col.tasks.length}
-              </span>
-            </div>
-
-            {col.tasks.length === 0 ? (
-              <div style={{ padding: "16px 18px", background: "var(--c-card)", border: "1px dashed var(--c-input-border)", borderRadius: 10, fontSize: 13, color: "var(--c-text-faint)", textAlign: "center" }}>
-                No tasks in this column
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {col.tasks.map(task => (
-                  <TaskCard key={task.id} task={task} onView={t => setModal({ type: "view", task: t })} />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Add column */}
-        <button style={pg.addColBtn}><Plus size={15} /> Add Column</button>
+      <div style={pg.toolbar}>
+        <div style={pg.tabBar}>
+          <button
+            style={{ ...pg.tabBtn, ...(activeTab === "master" ? pg.tabBtnActive : null) }}
+            onClick={() => setActiveTab("master")}
+          >
+            Master Tasks
+            <span style={pg.tabCount}>{masterTasks.length}</span>
+          </button>
+          <button
+            style={{ ...pg.tabBtn, ...(activeTab === "assigned" ? pg.tabBtnActive : null) }}
+            onClick={() => setActiveTab("assigned")}
+          >
+            Assigned Tasks
+            <span style={pg.tabCount}>{tasks.length}</span>
+          </button>
+        </div>
       </div>
+
+      {activeTab === "master" ? (
+        <div style={pg.masterList}>
+          {masterTasks.length === 0 ? (
+            <div style={pg.emptyState}>
+              No master tasks yet. Create one first, then assign it to staff.
+            </div>
+          ) : (
+            masterTasks.map((task) => {
+              const ps = PRIORITY_STYLE[task.priority] ?? PRIORITY_STYLE.NORMAL;
+              return (
+                <div key={task.id} style={pg.masterCard}>
+                  <div style={pg.masterHeader}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={pg.masterTitleRow}>
+                        <span style={{ ...tc.priorityBadge, background: ps.bg, color: ps.color }}>
+                          {task.priority}
+                        </span>
+                        <span style={pg.masterId}>#{task.id}</span>
+                      </div>
+                      <div style={pg.masterTitle}>{task.title}</div>
+                      <div style={pg.masterDescription}>{task.description || "No description provided."}</div>
+                    </div>
+                    <button style={pg.assignBtn} onClick={() => setModal({ type: "assign", task })}>
+                      <Plus size={14} /> Assign
+                    </button>
+                  </div>
+                  <div style={pg.masterMetaGrid}>
+                    <div style={pg.masterMetaCard}>
+                      <div style={pg.masterMetaLabel}>Zone</div>
+                      <div style={pg.masterMetaValue}>{task.zoneLabel ?? "Not linked"}</div>
+                    </div>
+                    <div style={pg.masterMetaCard}>
+                      <div style={pg.masterMetaLabel}>Schedule</div>
+                      <div style={pg.masterMetaValue}>
+                        {task.startTime ?? "No start"} - {task.endTime ?? "No end"}
+                      </div>
+                    </div>
+                    <div style={pg.masterMetaCard}>
+                      <div style={pg.masterMetaLabel}>Materials</div>
+                      <div style={pg.masterMetaValue}>
+                        {task.materials?.length ? task.materials.join(", ") : "None listed"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {grouped.map((col) => (
+            <div key={col.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--c-text)", letterSpacing: "0.5px" }}>{col.label}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, padding: "1px 8px", borderRadius: 20, background: "var(--c-input-bg)", color: col.color, border: "1px solid var(--c-card-border)" }}>
+                  {col.tasks.length}
+                </span>
+              </div>
+
+              {col.tasks.length === 0 ? (
+                <div style={pg.emptyState}>No assigned tasks in this column</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {col.tasks.map((task) => (
+                    <TaskCard key={task.id} task={task} onView={(t) => setModal({ type: "view", task: t })} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modals */}
       {modal.type === "create" && (
         <CreateTaskModal
-          assignees={assignees}
+          zones={zones}
           onClose={() => setModal({ type: "none" })}
           onSave={(f) => void handleCreate(f)}
         />
       )}
+      {modal.type === "assign" && (
+        <AssignTaskModal
+          task={modal.task}
+          assignees={assignees}
+          onClose={() => setModal({ type: "none" })}
+          onSave={(f) => void handleAssign(modal.task, f)}
+        />
+      )}
       {modal.type === "edit" && (
         <CreateTaskModal
-          assignees={assignees}
           initial={{
             title: modal.task.title,
             category: "Maintenance",
             description: modal.task.description,
-            assigneeId: modal.task.assignedTo.id ?? "",
-            assigneeName: modal.task.assignedTo.name,
             priority: "MEDIUM",
-            area: modal.task.location ?? "Outside Main Door",
-            frequency: "Daily, Weekly, Weekends",
+            zoneId: "",
+            materials: modal.task.extension ?? "",
             startTime: "",
             endTime: "",
             duration: modal.task.duration ?? "",
           }}
+          zones={zones}
           onClose={() => setModal({ type: "none" })}
           onSave={(f) => void handleEdit(f)}
         />
@@ -832,6 +1042,24 @@ const pg: Record<string, React.CSSProperties> = {
   createBtn: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", fontSize: 13.5, fontWeight: 600, border: "none", borderRadius: 9, background: "#2563eb", color: "#fff", cursor: "pointer" },
   filterPill: { padding: "5px 12px", fontSize: 13, fontWeight: 500, border: "1px solid var(--c-input-border)", borderRadius: 20, background: "var(--c-card)", color: "var(--c-text-2)", cursor: "pointer" },
   addColBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", fontSize: 13.5, fontWeight: 600, border: "1.5px dashed var(--c-input-border)", borderRadius: 10, background: "none", color: "var(--c-text-faint)", cursor: "pointer", width: "100%", marginTop: 4 },
+  toolbar: { display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" },
+  tabBar: { display: "inline-flex", alignItems: "center", gap: 8, padding: 4, background: "var(--c-input-bg)", border: "1px solid var(--c-card-border)", borderRadius: 14 },
+  tabBtn: { display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: "none", background: "transparent", color: "var(--c-text-muted)", fontSize: 13, fontWeight: 700, cursor: "pointer" },
+  tabBtnActive: { background: "var(--c-card)", color: "#2563eb", boxShadow: "0 8px 24px rgba(37,99,235,0.12)" },
+  tabCount: { minWidth: 22, padding: "2px 7px", borderRadius: 999, background: "rgba(37,99,235,0.12)", color: "#2563eb", fontSize: 11, fontWeight: 800, textAlign: "center" as const },
+  masterList: { display: "flex", flexDirection: "column", gap: 16 },
+  masterCard: { background: "var(--c-card)", border: "1px solid var(--c-card-border)", borderRadius: 14, padding: 18, boxShadow: "0 12px 32px rgba(15,23,42,0.04)" },
+  masterHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" },
+  masterTitleRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" },
+  masterId: { fontSize: 11.5, fontWeight: 700, color: "var(--c-text-faint)" },
+  masterTitle: { fontSize: 17, fontWeight: 800, color: "var(--c-text)", marginBottom: 6 },
+  masterDescription: { fontSize: 13.5, color: "var(--c-text-muted)", lineHeight: 1.6 },
+  assignBtn: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(37,99,235,0.18)", background: "#eff6ff", color: "#2563eb", fontSize: 13, fontWeight: 700, cursor: "pointer" },
+  masterMetaGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 },
+  masterMetaCard: { padding: "12px 14px", borderRadius: 12, background: "var(--c-input-bg)", border: "1px solid var(--c-card-border)" },
+  masterMetaLabel: { fontSize: 11, fontWeight: 800, color: "var(--c-text-faint)", textTransform: "uppercase" as const, letterSpacing: "0.6px", marginBottom: 5 },
+  masterMetaValue: { fontSize: 13, color: "var(--c-text)", lineHeight: 1.5 },
+  emptyState: { padding: "16px 18px", background: "var(--c-card)", border: "1px dashed var(--c-input-border)", borderRadius: 10, fontSize: 13, color: "var(--c-text-faint)", textAlign: "center" as const },
 };
 const tc: Record<string, React.CSSProperties> = {
   card: { background: "var(--c-card)", border: "1px solid var(--c-card-border)", borderRadius: 12, padding: "14px 16px" },
@@ -867,4 +1095,10 @@ const cf: Record<string, React.CSSProperties> = {
   footer: { display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 12, marginTop: 4, borderTop: "1px solid var(--c-divider)" },
   cancelBtn: { padding: "9px 20px", fontSize: 13.5, fontWeight: 600, border: "1px solid var(--c-input-border)", borderRadius: 8, background: "var(--c-card)", color: "var(--c-text-2)", cursor: "pointer" },
   saveBtn: { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 20px", fontSize: 13.5, fontWeight: 600, border: "none", borderRadius: 8, background: "#2563eb", color: "#fff", cursor: "pointer" },
+};
+const af: Record<string, React.CSSProperties> = {
+  summaryCard: { background: "linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%)", border: "1px solid rgba(37,99,235,0.16)", borderRadius: 12, padding: "14px 16px", marginBottom: 8 },
+  summaryTitle: { fontSize: 15, fontWeight: 800, color: "var(--c-text)", marginBottom: 6 },
+  summaryText: { fontSize: 13, color: "var(--c-text-muted)", lineHeight: 1.6, marginBottom: 10 },
+  metaRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: 12.5, color: "#2563eb", fontWeight: 600 },
 };

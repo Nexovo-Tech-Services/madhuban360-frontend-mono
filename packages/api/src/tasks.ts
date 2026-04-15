@@ -50,10 +50,7 @@ export interface StaffMasterTaskRecord {
       email: string;
     } | null;
   } | null;
-  masterTask?: {
-    id: number;
-    title: string;
-  } | null;
+  masterTask?: MasterTaskRecord | null;
 }
 
 export interface DailyStaffTaskRecord {
@@ -159,10 +156,7 @@ function mapStaffAssignment(raw: Record<string, unknown>): StaffMasterTaskRecord
         : null,
     masterTask:
       raw.masterTask && typeof raw.masterTask === "object"
-        ? {
-            id: Number((raw.masterTask as Record<string, unknown>).id ?? 0),
-            title: String((raw.masterTask as Record<string, unknown>).title ?? ""),
-          }
+        ? mapMasterTask(raw.masterTask as Record<string, unknown>)
         : null,
   };
 }
@@ -261,9 +255,12 @@ export async function getMasterTaskById(
   return match;
 }
 
-export async function createTask(data: unknown): Promise<unknown> {
+export async function createTask(data: unknown): Promise<{
+  message?: string;
+  data: MasterTaskRecord;
+}> {
   const input = data as Record<string, unknown>;
-  const payload = {
+  const requestBody = {
     title: String(input.title ?? ""),
     description:
       input.description == null ? undefined : String(input.description),
@@ -289,9 +286,16 @@ export async function createTask(data: unknown): Promise<unknown> {
   const res = await fetch(API_TASKS(), {
     method: "POST",
     headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestBody),
   });
-  return readJsonOrThrow(res);
+  const response = (await readJsonOrThrow(res)) as {
+    message?: string;
+    data: Record<string, unknown>;
+  };
+  return {
+    message: response.message,
+    data: mapMasterTask(response.data),
+  };
 }
 
 export async function updateTask(

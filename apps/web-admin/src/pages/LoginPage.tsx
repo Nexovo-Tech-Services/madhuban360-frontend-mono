@@ -1,4 +1,3 @@
-import containerLogo from "../assets/Container.svg";
 import { Eye, EyeOff, Lock, LogIn, Mail, Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +29,52 @@ const FEATURES = [
   "Real-time staff attendance tracking",
   "Work orders, assets & reports in one place",
 ];
+
+function BrandMark() {
+  return (
+    <div className="login-panel__brand" aria-label="Madhuban 360">
+      <div className="login-panel__brand-badge">
+        <svg
+          className="login-panel__brand-svg"
+          viewBox="0 0 88 88"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="brand-core" x1="14" y1="12" x2="73" y2="76" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="1" stopColor="#bfdbfe" />
+            </linearGradient>
+            <linearGradient id="brand-edge" x1="8" y1="8" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="rgba(255,255,255,0.9)" />
+              <stop offset="1" stopColor="rgba(191,219,254,0.3)" />
+            </linearGradient>
+          </defs>
+          <rect x="11" y="11" width="66" height="66" rx="22" fill="url(#brand-edge)" opacity="0.22" />
+          <circle cx="44" cy="44" r="27" fill="none" stroke="rgba(191,219,254,0.55)" strokeWidth="1.5" />
+          <circle cx="44" cy="44" r="18" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.5" />
+          <path
+            d="M44 21L59 29.5V46.5C59 56.4 52.5 63.1 44 67C35.5 63.1 29 56.4 29 46.5V29.5L44 21Z"
+            fill="url(#brand-core)"
+          />
+          <path
+            d="M44 28L53 33.1V43.3C53 49.5 49.1 54 44 56.6C38.9 54 35 49.5 35 43.3V33.1L44 28Z"
+            fill="#1d4ed8"
+            opacity="0.95"
+          />
+          <path
+            d="M44 34L47.8 41.7L56.2 42.9L50.1 48.8L51.5 57.1L44 53.2L36.5 57.1L37.9 48.8L31.8 42.9L40.2 41.7L44 34Z"
+            fill="#eff6ff"
+          />
+        </svg>
+      </div>
+      <div className="login-panel__brand-copy">
+        <div className="login-panel__brand-title">Madhuban 360</div>
+        <div className="login-panel__brand-subtitle">Operations Control Layer</div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Login page ───────────────────────────────────────────────────────────────
 export function LoginPage() {
@@ -74,7 +119,7 @@ export function LoginPage() {
         <PanelDecor />
 
         <div className="login-panel__content">
-          <img src={containerLogo} alt="Madhuban 360" className="login-panel__logo" />
+          <BrandMark />
 
           <h1 className="login-panel__headline">
             Smart property management, <br />
