@@ -52,6 +52,9 @@ export {
   getRoles,
   getDepartments,
   getDepartmentById,
+  type ManagerRecord,
+  type RoleRecord,
+  type SupervisorRecord,
 } from "./users";
 export {
   getProperties,

@@ -294,11 +294,17 @@ export async function createTask(data: unknown): Promise<unknown> {
   return readJsonOrThrow(res);
 }
 
-export async function updateTask(): Promise<unknown> {
+export async function updateTask(
+  _id: string | number,
+  _data: unknown,
+): Promise<unknown> {
   throw new Error("Master task update is not documented by the admin API.");
 }
 
-export async function updateTaskStatus(): Promise<unknown> {
+export async function updateTaskStatus(
+  _id: string | number,
+  _status: string,
+): Promise<unknown> {
   throw new Error("Master task status update is not documented by the admin API.");
 }
 

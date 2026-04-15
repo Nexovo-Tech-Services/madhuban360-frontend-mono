@@ -7,7 +7,12 @@ import {
   Users,
   Warehouse,
 } from "lucide-react";
-import { useState } from "react";
+import {
+  SkeletonBlock,
+  SkeletonCardList,
+  SkeletonMetricCard,
+  SkeletonTheme,
+} from "../components/Skeleton";
 import { useNavigate } from "react-router-dom";
 import { useShellHeader } from "../context/ShellHeaderContext";
 
@@ -186,7 +191,7 @@ function DashboardActions() {
   );
 }
 
-function DashboardSkeleton() {
+function _DashboardSkeleton() {
   return (
     <div>
       <SkeletonTheme />
@@ -247,22 +252,24 @@ function DashboardSkeleton() {
   );
 }
 
+void _DashboardSkeleton;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export function AdminDashboardPage() {
-  const [metrics, setMetrics] = useState<Metrics>(MOCK_METRICS);
-  const [pipelineData, setPipelineData] = useState<number[]>(PIPELINE_DATA);
-  const [pipelineSummary, setPipelineSummary] = useState({
+  const metrics: Metrics = MOCK_METRICS;
+  const pipelineData = PIPELINE_DATA;
+  const pipelineSummary = {
     value: 42000,
     trend: 12.5,
     label: "from last month",
-  });
-  const [revenueData, setRevenueData] = useState<number[]>(REVENUE_DATA);
-  const [revenueSummary, setRevenueSummary] = useState({
+  };
+  const revenueData = REVENUE_DATA;
+  const revenueSummary = {
     value: 128500,
     trend: 8.2,
     label: "Year-to-date",
-  });
-  const [alerts, setAlerts] = useState<DashboardAlert[]>(
+  };
+  const alerts: DashboardAlert[] =
     ALERTS.map((alert) => ({
       id: alert.id,
       title: alert.title,
@@ -272,9 +279,8 @@ export function AdminDashboardPage() {
       reportedBy: alert.reporter,
       timeAgo: alert.time,
       urgency: alert.level,
-    })),
-  );
-  const [activity, setActivity] = useState<DashboardActivityItem[]>(
+    }));
+  const activity: DashboardActivityItem[] =
     ACTIVITY.map((item) => {
       const [source, timeAgo] = item.meta.split(" · ");
       return {
@@ -284,8 +290,7 @@ export function AdminDashboardPage() {
         timeAgo,
         dot: item.dot,
       };
-    }),
-  );
+    });
   useShellHeader({ showSearch: true });
 
   const today = new Date().toLocaleDateString("en-US", {

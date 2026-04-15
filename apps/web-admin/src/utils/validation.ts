@@ -41,7 +41,10 @@ export function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
 
-export function getRequiredError(rawValue: string, message = validationMessages.required) {
+export function getRequiredError(
+  rawValue: string,
+  message: string = validationMessages.required,
+) {
   return String(rawValue || "").trim() ? null : message;
 }
 

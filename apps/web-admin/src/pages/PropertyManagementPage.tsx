@@ -841,7 +841,11 @@ export function PropertyManagementPage() {
       ]);
 
       if (Array.isArray(propsRaw) && propsRaw.length) {
-        setProperties(propsRaw.map((p, idx) => normalizeProperty(p as Record<string, unknown>, idx)));
+        setProperties(
+          propsRaw.map((p, idx) =>
+            normalizeProperty(p as unknown as Record<string, unknown>, idx),
+          ),
+        );
       }
 
       if (Array.isArray(propSum)) {
