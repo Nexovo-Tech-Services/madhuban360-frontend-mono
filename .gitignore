@@ -9,3 +9,4 @@ dist-web
 !.env.example
 .DS_Store
 *.log
+*.md
