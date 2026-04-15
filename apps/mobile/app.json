@@ -53,11 +53,11 @@
     ],
     "extra": {
       "router": {},
-      "apiBaseUrl": "",
+      "apiBaseUrl": "https://nexyyra.com",
       "eas": {
-        "projectId": "2c5b09a0-ba52-44ec-8437-5d6131b62603"
+        "projectId": "9684c032-29a2-4c68-a043-33acfa4d3c55"
       }
     },
-    "owner": "nexyyra"
+    "owner": "snjystrms"
   }
 }

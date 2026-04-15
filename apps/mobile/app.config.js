@@ -9,7 +9,10 @@ module.exports = () => ({
       eas: {
         ...(appJson.expo.extra?.eas ?? {}),
       },
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+      apiBaseUrl:
+        process.env.EXPO_PUBLIC_API_BASE_URL ??
+        appJson.expo.extra?.apiBaseUrl ??
+        "",
     },
   },
 });

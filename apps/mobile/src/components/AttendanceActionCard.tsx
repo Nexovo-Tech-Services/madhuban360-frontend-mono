@@ -24,8 +24,17 @@ const CHECK_OUT_ACTION = {
   icon: "log-out-outline" as const,
 };
 
+const CHECKED_OUT_ACTION = {
+  key: "check-in" as const,
+  title: "Checked Out",
+  subtitle: "Today's attendance is already completed",
+  icon: "checkmark-done-outline" as const,
+};
+
 export function AttendanceActionCard({ role }: { role: string | undefined }) {
-  const [checkedIn, setCheckedIn] = useState(false);
+  const [attendancePhase, setAttendancePhase] = useState<"NOT_CHECKED_IN" | "ACTIVE" | "COMPLETED">(
+    "NOT_CHECKED_IN",
+  );
   const normalizedRole = String(role ?? "").trim().toLowerCase();
   const isSupervisor = normalizedRole === "supervisor";
   const isStaff = normalizedRole === "staff";
@@ -35,23 +44,25 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
       let alive = true;
       (async () => {
         try {
-          let ci = false;
+          let nextPhase: "NOT_CHECKED_IN" | "ACTIVE" | "COMPLETED" = "NOT_CHECKED_IN";
           if (isSupervisor) {
             const data = await getSupervisorAttendance();
-            ci = data.phase === "ACTIVE" || data.phase === "COMPLETED";
+            nextPhase = data.phase;
           } else if (isStaff) {
             const data = await getStaffAttendance();
-            ci = data.phase === "ACTIVE" || data.phase === "COMPLETED";
+            nextPhase = data.phase;
           } else {
             const res = await getTodayAttendance();
             const data = (res as { data?: unknown } | null)?.data ?? res;
-            ci = Boolean((data as { checkedIn?: unknown } | null)?.checkedIn);
+            const checkedOut = Boolean((data as { checkedOut?: unknown } | null)?.checkedOut);
+            const checkedIn = Boolean((data as { checkedIn?: unknown } | null)?.checkedIn);
+            nextPhase = checkedOut ? "COMPLETED" : checkedIn ? "ACTIVE" : "NOT_CHECKED_IN";
           }
-          if (alive) setCheckedIn(ci);
-          await AsyncStorage.setItem(CHECKED_IN_KEY, ci ? "true" : "false");
+          if (alive) setAttendancePhase(nextPhase);
+          await AsyncStorage.setItem(CHECKED_IN_KEY, nextPhase === "ACTIVE" ? "true" : "false");
         } catch {
           const val = await AsyncStorage.getItem(CHECKED_IN_KEY);
-          if (alive) setCheckedIn(val === "true");
+          if (alive) setAttendancePhase(val === "true" ? "ACTIVE" : "NOT_CHECKED_IN");
         }
       })();
       return () => {
@@ -60,9 +71,12 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
     }, [isStaff, isSupervisor]),
   );
 
-  const action = checkedIn ? CHECK_OUT_ACTION : CHECK_IN_ACTION;
+  const checkedIn = attendancePhase === "ACTIVE";
+  const checkedOut = attendancePhase === "COMPLETED";
+  const action = checkedOut ? CHECKED_OUT_ACTION : checkedIn ? CHECK_OUT_ACTION : CHECK_IN_ACTION;
 
   async function handleOpen() {
+    if (checkedOut) return;
     router.push(getRoleAttendancePath(role, action.key));
   }
 
@@ -74,20 +88,65 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
           <Text style={styles.title}>Attendance</Text>
         </View>
 
-        <View style={[styles.statusPill, checkedIn ? styles.statusPillActive : styles.statusPillIdle]}>
-          <View style={[styles.statusDot, checkedIn ? styles.statusDotActive : styles.statusDotIdle]} />
-          <Text style={[styles.statusText, checkedIn ? styles.statusTextActive : styles.statusTextIdle]}>
-            {checkedIn ? "Checked In" : "Not Checked In"}
+        <View
+          style={[
+            styles.statusPill,
+            checkedOut
+              ? styles.statusPillCompleted
+              : checkedIn
+                ? styles.statusPillActive
+                : styles.statusPillIdle,
+          ]}
+        >
+          <View
+            style={[
+              styles.statusDot,
+              checkedOut
+                ? styles.statusDotCompleted
+                : checkedIn
+                  ? styles.statusDotActive
+                  : styles.statusDotIdle,
+            ]}
+          />
+          <Text
+            style={[
+              styles.statusText,
+              checkedOut
+                ? styles.statusTextCompleted
+                : checkedIn
+                  ? styles.statusTextActive
+                  : styles.statusTextIdle,
+            ]}
+          >
+            {checkedOut ? "Checked Out" : checkedIn ? "Checked In" : "Not Checked In"}
           </Text>
         </View>
       </View>
 
-      <View style={[styles.actionRow, checkedIn && styles.actionRowCheckOut]}>
-        <View style={[styles.iconWrap, checkedIn && styles.iconWrapCheckOut]}>
+      <View
+        style={[
+          styles.actionRow,
+          checkedOut
+            ? styles.actionRowCompleted
+            : checkedIn
+              ? styles.actionRowCheckOut
+              : null,
+        ]}
+      >
+        <View
+          style={[
+            styles.iconWrap,
+            checkedOut
+              ? styles.iconWrapCompleted
+              : checkedIn
+                ? styles.iconWrapCheckOut
+                : null,
+          ]}
+        >
           <Ionicons
             name={action.icon}
             size={18}
-            color={checkedIn ? "#FF6B35" : "#2E6CFF"}
+            color={checkedOut ? "#0F9F6E" : checkedIn ? "#FF6B35" : "#2E6CFF"}
           />
         </View>
 
@@ -97,10 +156,14 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
         </View>
 
         <Pressable
-          style={[styles.button, checkedIn && styles.buttonCheckOut]}
+          style={[
+            styles.button,
+            checkedOut ? styles.buttonDisabled : checkedIn ? styles.buttonCheckOut : null,
+          ]}
           onPress={handleOpen}
+          disabled={checkedOut}
         >
-          <Text style={styles.buttonText}>Open</Text>
+          <Text style={styles.buttonText}>{checkedOut ? "Done" : "Open"}</Text>
         </Pressable>
       </View>
     </View>
@@ -152,6 +215,9 @@ const styles = StyleSheet.create({
   statusPillActive: {
     backgroundColor: "#E9FBF2",
   },
+  statusPillCompleted: {
+    backgroundColor: "#ECFDF3",
+  },
   statusDot: {
     width: 6,
     height: 6,
@@ -163,6 +229,9 @@ const styles = StyleSheet.create({
   statusDotActive: {
     backgroundColor: "#10B981",
   },
+  statusDotCompleted: {
+    backgroundColor: "#0F9F6E",
+  },
   statusText: {
     fontFamily: font.family.bold,
     fontSize: 11,
@@ -172,6 +241,9 @@ const styles = StyleSheet.create({
   },
   statusTextActive: {
     color: "#10B981",
+  },
+  statusTextCompleted: {
+    color: "#0F9F6E",
   },
   actionRow: {
     flexDirection: "row",
@@ -187,6 +259,10 @@ const styles = StyleSheet.create({
     borderColor: "#FFE4D6",
     backgroundColor: "#FFF8F5",
   },
+  actionRowCompleted: {
+    borderColor: "#D1FAE5",
+    backgroundColor: "#F3FFF8",
+  },
   iconWrap: {
     width: 42,
     height: 42,
@@ -200,6 +276,10 @@ const styles = StyleSheet.create({
   iconWrapCheckOut: {
     backgroundColor: "#FFEFE8",
     borderColor: "#FFD9C6",
+  },
+  iconWrapCompleted: {
+    backgroundColor: "#E9FBF2",
+    borderColor: "#BBF7D0",
   },
   actionBody: {
     flex: 1,
@@ -227,6 +307,9 @@ const styles = StyleSheet.create({
   },
   buttonCheckOut: {
     backgroundColor: "#FF6B35",
+  },
+  buttonDisabled: {
+    backgroundColor: "#94A3B8",
   },
   buttonText: {
     color: "#FFFFFF",

@@ -109,6 +109,8 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
   const [capturedAt, setCapturedAt] = useState<Date | null>(null);
   const [coords, setCoords] = useState<CoordinatesState | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturingPhoto, setCapturingPhoto] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -170,12 +172,20 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
     }
 
     setStatusMessage(null);
+    setCameraReady(false);
     setCameraOpen(true);
   }
 
   async function capturePhoto() {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || !cameraReady || capturingPhoto) {
+      if (!cameraReady) {
+        setStatusMessage("Camera is still getting ready. Please wait a moment.");
+      }
+      return;
+    }
     try {
+      setCapturingPhoto(true);
+      setStatusMessage(null);
       const nextCoords = coords ?? (await ensureLocation());
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
@@ -187,6 +197,8 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
       setCameraOpen(false);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Unable to capture selfie.");
+    } finally {
+      setCapturingPhoto(false);
     }
   }
 
@@ -253,14 +265,35 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
 
       <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
         <View style={styles.cameraScreen}>
-          <CameraView ref={cameraRef} facing="front" style={styles.cameraView} />
+          <CameraView
+            ref={cameraRef}
+            facing="front"
+            style={styles.cameraView}
+            onCameraReady={() => {
+              setCameraReady(true);
+              setStatusMessage(null);
+            }}
+          />
           <View style={[styles.cameraHeader, { paddingTop: insets.top + 12 }]}>
             <Pressable style={styles.cameraBackButton} onPress={() => setCameraOpen(false)}>
               <Feather name="x" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
+          {!cameraReady ? (
+            <View style={styles.cameraStatusBadge}>
+              <Text style={styles.cameraStatusText}>Preparing camera...</Text>
+            </View>
+          ) : null}
           <View style={[styles.cameraFooter, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <Pressable style={styles.captureButtonOuter} onPress={capturePhoto}>
+            <Pressable
+              style={[
+                styles.captureButtonOuter,
+                (!cameraReady || capturingPhoto) && styles.captureButtonOuterDisabled,
+              ]}
+              onPress={capturePhoto}
+              disabled={!cameraReady || capturingPhoto}
+              android_disableSound
+            >
               <View style={styles.captureButtonInner} />
             </Pressable>
           </View>
@@ -506,7 +539,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
   cameraView: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   cameraHeader: {
     position: "absolute",
@@ -515,6 +548,8 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     alignItems: "flex-end",
+    zIndex: 3,
+    elevation: 3,
   },
   cameraBackButton: {
     width: 40,
@@ -530,6 +565,25 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: "center",
+    zIndex: 3,
+    elevation: 3,
+  },
+  cameraStatusBadge: {
+    position: "absolute",
+    top: "50%",
+    alignSelf: "center",
+    transform: [{ translateY: -24 }],
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radii.full,
+    backgroundColor: "rgba(15,23,42,0.7)",
+    zIndex: 2,
+    elevation: 2,
+  },
+  cameraStatusText: {
+    color: "#FFFFFF",
+    fontFamily: font.family.bold,
+    fontSize: 12,
   },
   captureButtonOuter: {
     width: 84,
@@ -539,6 +593,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.78)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  captureButtonOuterDisabled: {
+    opacity: 0.6,
   },
   captureButtonInner: {
     width: 62,

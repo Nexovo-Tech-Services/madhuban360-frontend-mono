@@ -101,7 +101,7 @@ export function UserManagementPage() {
       .join("")
       .toUpperCase();
     return {
-      id: idx + 1,
+      id: Number(raw.id ?? idx + 1),
       apiId: String(raw._id ?? raw.id ?? ""),
       name,
       email,
@@ -124,6 +124,45 @@ export function UserManagementPage() {
           : undefined,
       facilities: Array.isArray(raw.facilities) ? (raw.facilities as string[]) : undefined,
     };
+  }
+
+  function getRoleId(role: UserRole): number | undefined {
+    return roles.find(
+      (item) => item.name.trim().toLowerCase() === role.trim().toLowerCase(),
+    )?.id;
+  }
+
+  function buildUserPayload(user: User, mode: "create" | "update") {
+    const roleId = getRoleId(user.role);
+    if (!roleId) {
+      throw new Error("Unable to resolve the selected role.");
+    }
+
+    const payload: Record<string, unknown> = {
+      name: user.name.trim(),
+      email: user.email.trim(),
+      phone: user.phone?.trim() || undefined,
+      roleId,
+      status: user.status,
+      department: user.department?.trim() || undefined,
+    };
+
+    if (mode === "create") {
+      payload.password = user.password;
+      payload.confirmPassword = user.confirmPassword;
+    }
+
+    if (user.role === "Supervisor") {
+      if (user.managerId) {
+        payload.managerId = Number(user.managerId);
+      }
+    } else if (user.role === "Staff") {
+      if (user.supervisorId) {
+        payload.supervisorId = Number(user.supervisorId);
+      }
+    }
+
+    return payload;
   }
 
   async function refreshUsers() {
@@ -192,25 +231,7 @@ export function UserManagementPage() {
 
   async function handleAdd(u: User) {
     try {
-      const roleId = roles.find(
-        (item) => item.name.trim().toLowerCase() === u.role.trim().toLowerCase(),
-      )?.id;
-      if (!roleId) {
-        showToast("error", "Failed to create user", "Unable to resolve the selected role.");
-        return;
-      }
-      await createUser({
-        name: u.name,
-        email: u.email,
-        password: u.password,
-        confirmPassword: u.confirmPassword,
-        phone: u.phone,
-        roleId,
-        status: u.status,
-        department: u.department,
-        ...(u.role === "Supervisor" && u.managerId ? { managerId: Number(u.managerId) } : {}),
-        ...(u.role === "Staff" && u.supervisorId ? { supervisorId: Number(u.supervisorId) } : {}),
-      });
+      await createUser(buildUserPayload(u, "create"));
       await refreshUsers();
       showToast("success", "User Added!", `${u.name} has been successfully created.`);
     } catch (e) {
@@ -220,17 +241,7 @@ export function UserManagementPage() {
 
   async function handleSaveEdit(updated: User) {
     try {
-      await updateUser(updated.apiId, {
-        name: updated.name,
-        email: updated.email,
-        role: updated.role.toLowerCase(),
-        ...(updated.role === "Supervisor"
-          ? { managerId: updated.managerId ? Number(updated.managerId) : null }
-          : {}),
-        ...(updated.role === "Staff"
-          ? { supervisorId: updated.supervisorId ? Number(updated.supervisorId) : null }
-          : {}),
-      });
+      await updateUser(updated.apiId, buildUserPayload(updated, "update"));
       await refreshUsers();
       showToast("success", "Updated Successfully", `${updated.name}'s profile has been saved.`);
     } catch (e) {
