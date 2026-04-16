@@ -1,44 +1,27 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import {
+  getSupervisorAttendance,
+  getSupervisorDashboard,
+  type SupervisorAttendanceResponse,
+  type SupervisorDashboardResponse,
+} from "@madhuban/api";
 import { font, radii } from "@madhuban/theme";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 
-const STATS = [
-  { label: "Zones", value: "4" },
-  { label: "Makers", value: "12" },
-  { label: "Daily Avg", value: "145" },
-] as const;
+type TimelineTone = "green" | "blue" | "orange" | "gray";
 
-const TIMELINE = [
-  {
-    time: "08:00 AM",
-    title: "Shift Started",
-    detail: "Checked in at AMTP Baner via GPS.",
-    tone: "green" as const,
-  },
-  {
-    time: "09:30 AM",
-    title: "First Round Complete",
-    detail: "Approved 24 tasks in Washrooms & Lobby.",
-    tone: "blue" as const,
-  },
-  {
-    time: "11:15 AM",
-    title: "Escalation Logged",
-    detail: "Sent back VIP Lounge due to missing supplies.",
-    tone: "orange" as const,
-  },
-  {
-    time: "05:00 PM",
-    title: "Shift End",
-    detail: "Pending checkout.",
-    tone: "gray" as const,
-  },
-] as const;
+type TimelineItem = {
+  time: string;
+  title: string;
+  detail: string;
+  tone: TimelineTone;
+};
 
 type AccountRow = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -47,37 +30,148 @@ type AccountRow = {
   meta?: string;
 };
 
-const ACCOUNT_ROWS: AccountRow[] = [
-  {
-    icon: "business-outline",
-    label: "Property",
-    value: "Amar Madhuban Tech Park",
-  },
-  {
-    icon: "person-outline",
-    label: "Reporting To",
-    value: "Priya Sharma · Asset Manager",
-  },
-  {
-    icon: "phone-portrait-outline",
-    label: "App Version",
-    value: "Madhuban FM v2.4",
-    meta: "v2.4.0",
-  },
-];
+function formatTime(value: string | null | undefined) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "SU";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+}
+
+function formatPhase(phase: string | null | undefined) {
+  const normalized = String(phase ?? "").trim().toUpperCase();
+  if (normalized === "ACTIVE") return "Checked In";
+  if (normalized === "COMPLETED") return "Checked Out";
+  if (normalized === "NOT_CHECKED_IN") return "Awaiting Check-In";
+  return normalized || "--";
+}
+
+function mapTimeline(
+  dashboard: SupervisorDashboardResponse | null,
+  attendance: SupervisorAttendanceResponse | null,
+): TimelineItem[] {
+  const items: TimelineItem[] = [];
+  if (attendance?.checkInAt) {
+    items.push({
+      time: formatTime(attendance.checkInAt),
+      title: "Checked In",
+      detail: `Attendance marked for ${formatDate(attendance.workDate)}.`,
+      tone: "green",
+    });
+  }
+
+  for (const activity of dashboard?.recentActivity ?? []) {
+    items.push({
+      time: activity.timeDisplay || formatTime(activity.decidedAt),
+      title:
+        activity.action === "APPROVED"
+          ? "Task Approved"
+          : activity.action === "REJECTED"
+            ? "Task Sent Back"
+            : activity.action,
+      detail: `${activity.taskTitle} · ${activity.staffName}${activity.note ? ` · ${activity.note}` : ""}`,
+      tone: activity.action === "APPROVED" ? "blue" : "orange",
+    });
+  }
+
+  if (attendance?.checkOutAt) {
+    items.push({
+      time: formatTime(attendance.checkOutAt),
+      title: "Checked Out",
+      detail: `Shift closed for ${formatDate(attendance.workDate)}.`,
+      tone: "gray",
+    });
+  }
+
+  return items.slice(0, 5);
+}
 
 export function SupervisorProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, clearSession } = useAuth();
-  const name = user?.name ?? "Rahul Tupe";
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase() || "RT";
+  const [dashboard, setDashboard] = useState<SupervisorDashboardResponse | null>(null);
+  const [attendance, setAttendance] = useState<SupervisorAttendanceResponse | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    const [nextDashboard, nextAttendance] = await Promise.all([
+      getSupervisorDashboard(),
+      getSupervisorAttendance(),
+    ]);
+    setDashboard(nextDashboard);
+    setAttendance(nextAttendance);
+  }, []);
+
+  useEffect(() => {
+    void loadProfile().catch(() => {
+      setDashboard(null);
+      setAttendance(null);
+    });
+  }, [loadProfile]);
+
+  const name = dashboard?.profile?.name?.trim() || user?.name?.trim() || "Supervisor";
+  const initials = dashboard?.profile?.initials || getInitials(name);
+  const shiftLabel = dashboard?.context?.shiftLabel || attendance?.shift || "--";
+  const phaseLabel = formatPhase(attendance?.phase);
+  const stats = useMemo(
+    () => [
+      { label: "Zones", value: String(dashboard?.zones?.length ?? 0) },
+      { label: "Review", value: String(dashboard?.stats?.needsReview ?? 0) },
+      { label: "Approved", value: String(dashboard?.stats?.approved ?? 0) },
+    ],
+    [dashboard],
+  );
+  const timeline = useMemo(() => mapTimeline(dashboard, attendance), [attendance, dashboard]);
+  const accountRows: AccountRow[] = useMemo(
+    () => [
+      {
+        icon: "business-outline",
+        label: "Work Context",
+        value: dashboard?.context?.label || "--",
+        meta: formatDate(dashboard?.date),
+      },
+      {
+        icon: "time-outline",
+        label: "Shift",
+        value: shiftLabel,
+        meta: dashboard?.context?.shift || attendance?.shift || "--",
+      },
+      {
+        icon: "shield-checkmark-outline",
+        label: "Attendance",
+        value: phaseLabel,
+        meta:
+          attendance?.checkOutAt
+            ? formatTime(attendance.checkOutAt)
+            : attendance?.checkInAt
+              ? formatTime(attendance.checkInAt)
+              : "--",
+      },
+    ],
+    [attendance, dashboard, phaseLabel, shiftLabel],
+  );
 
   async function logout() {
     await clearSession();
@@ -101,17 +195,17 @@ export function SupervisorProfileScreen() {
         </View>
 
         <Text style={styles.name}>{name}</Text>
-        <Text style={styles.subtitle}>Quality Checker · AMTP Baner</Text>
+        <Text style={styles.subtitle}>{dashboard?.context?.label || "Supervisor workspace"}</Text>
 
         <View style={styles.badgesRow}>
           <View style={[styles.badge, styles.badgeShift]}>
-            <Text style={styles.badgeText}>Day Shift</Text>
+            <Text style={styles.badgeText}>{shiftLabel}</Text>
           </View>
           <View style={[styles.badge, styles.badgeActive]}>
-            <Text style={styles.badgeText}>Active</Text>
+            <Text style={styles.badgeText}>{phaseLabel}</Text>
           </View>
           <View style={[styles.badge, styles.badgeRole]}>
-            <Text style={styles.badgeText}>Checker</Text>
+            <Text style={styles.badgeText}>{dashboard?.profile?.role || "SUPERVISOR"}</Text>
           </View>
         </View>
       </View>
@@ -120,10 +214,10 @@ export function SupervisorProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        onRefresh={async () => {}}
+        onRefresh={loadProfile}
       >
         <View style={styles.statsRow}>
-          {STATS.map((item) => (
+          {stats.map((item) => (
             <View key={item.label} style={styles.statCard}>
               <Text style={styles.statValue}>{item.value}</Text>
               <Text style={styles.statLabel}>{item.label}</Text>
@@ -137,33 +231,37 @@ export function SupervisorProfileScreen() {
             <Text style={styles.cardTitle}>Shift Timeline</Text>
           </View>
 
-          <View style={styles.timelineList}>
-            {TIMELINE.map((item, index) => (
-              <View key={item.time} style={styles.timelineRow}>
-                <View style={styles.timelineRail}>
-                  <View
-                    style={[
-                      styles.timelineDot,
-                      item.tone === "green"
-                        ? styles.timelineDotGreen
-                        : item.tone === "blue"
-                          ? styles.timelineDotBlue
-                          : item.tone === "orange"
-                            ? styles.timelineDotOrange
-                            : styles.timelineDotGray,
-                    ]}
-                  />
-                  {index !== TIMELINE.length - 1 ? <View style={styles.timelineLine} /> : null}
-                </View>
+          {timeline.length > 0 ? (
+            <View style={styles.timelineList}>
+              {timeline.map((item, index) => (
+                <View key={`${item.title}-${item.time}-${index}`} style={styles.timelineRow}>
+                  <View style={styles.timelineRail}>
+                    <View
+                      style={[
+                        styles.timelineDot,
+                        item.tone === "green"
+                          ? styles.timelineDotGreen
+                          : item.tone === "blue"
+                            ? styles.timelineDotBlue
+                            : item.tone === "orange"
+                              ? styles.timelineDotOrange
+                              : styles.timelineDotGray,
+                      ]}
+                    />
+                    {index !== timeline.length - 1 ? <View style={styles.timelineLine} /> : null}
+                  </View>
 
-                <View style={styles.timelineBody}>
-                  <Text style={styles.timelineTime}>{item.time}</Text>
-                  <Text style={styles.timelineTitle}>{item.title}</Text>
-                  <Text style={styles.timelineDetail}>{item.detail}</Text>
+                  <View style={styles.timelineBody}>
+                    <Text style={styles.timelineTime}>{item.time}</Text>
+                    <Text style={styles.timelineTitle}>{item.title}</Text>
+                    <Text style={styles.timelineDetail}>{item.detail}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Timeline activity will appear here when the API returns attendance or review events.</Text>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -173,12 +271,12 @@ export function SupervisorProfileScreen() {
           </View>
 
           <View style={styles.accountList}>
-            {ACCOUNT_ROWS.map((item, index) => (
+            {accountRows.map((item, index) => (
               <View
                 key={item.label}
                 style={[
                   styles.accountRow,
-                  index !== ACCOUNT_ROWS.length - 1 && styles.accountRowBorder,
+                  index !== accountRows.length - 1 && styles.accountRowBorder,
                 ]}
               >
                 <View style={styles.accountIconWrap}>
@@ -188,7 +286,7 @@ export function SupervisorProfileScreen() {
                   <Text style={styles.accountLabel}>{item.label}</Text>
                   <Text style={styles.accountValue}>{item.value}</Text>
                 </View>
-                <Text style={styles.accountMeta}>{item.meta ?? ">"}</Text>
+                <Text style={styles.accountMeta}>{item.meta ?? "--"}</Text>
               </View>
             ))}
           </View>
@@ -281,9 +379,11 @@ const styles = StyleSheet.create({
     marginTop: 14,
     flexDirection: "row",
     gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   badge: {
-    height: 24,
+    minHeight: 24,
     paddingHorizontal: 12,
     borderRadius: 12,
     justifyContent: "center",
@@ -408,6 +508,12 @@ const styles = StyleSheet.create({
     fontFamily: font.family.medium,
     fontSize: 12,
     lineHeight: 17,
+  },
+  emptyText: {
+    color: "#7E8DA4",
+    fontFamily: font.family.medium,
+    fontSize: 12,
+    lineHeight: 18,
   },
   accountList: {
     gap: 4,

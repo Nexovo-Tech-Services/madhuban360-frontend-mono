@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "madhuban360",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/madhuban360.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,

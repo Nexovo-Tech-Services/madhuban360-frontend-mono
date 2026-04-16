@@ -35,7 +35,7 @@ function formatCheckIn(value: string | null | undefined) {
 }
 
 function formatDateLabel(value: string | null | undefined) {
-  if (!value) return "26 Mar 2026";
+  if (!value) return "--";
   return new Date(value).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -52,6 +52,7 @@ export function StaffHomeScreen() {
     remaining: number;
     criticalPending: number;
     shift: string;
+    date: string;
   } | null>(null);
   const [attendance, setAttendance] = useState<{
     phase: string;
@@ -72,6 +73,7 @@ export function StaffHomeScreen() {
         remaining: dashboardData.counts.remaining,
         criticalPending: dashboardData.actionNeeded.criticalPending,
         shift: dashboardData.shift,
+        date: dashboardData.date,
       });
       if (attendanceData) {
         setAttendance({
@@ -95,23 +97,24 @@ export function StaffHomeScreen() {
   }, [load]);
 
   const roleLabel = formatRoleLabel(String(role ?? user?.role));
-  const firstName = user?.name?.split(" ")[0] ?? "Rahul";
-  const assigned = dashboard?.assigned ?? 24;
-  const completed = dashboard?.completed ?? 18;
-  const remaining = dashboard?.remaining ?? Math.max(0, assigned - completed);
-  const criticalPending = dashboard?.criticalPending ?? 3;
-  const shiftLabel = dashboard?.shift ? `Shift · ${dashboard.shift}` : "Shift · Morning";
+  const firstName = user?.name?.split(" ")[0] ?? roleLabel;
+  const assigned = dashboard?.assigned ?? 0;
+  const completed = dashboard?.completed ?? 0;
+  const remaining = dashboard?.remaining ?? 0;
+  const criticalPending = dashboard?.criticalPending ?? 0;
+  const shiftLabel = dashboard?.shift ? `Shift · ${dashboard.shift}` : "Shift · --";
+  const dateLabel = formatDateLabel(attendance?.workDate ?? dashboard?.date ?? null);
 
   return (
     <RolePageLayout
       eyebrow={shiftLabel}
       title={`Hi, ${firstName}!`}
-      subtitle="Madhuban Groups"
+      subtitle={dateLabel}
       meta={roleLabel}
       compact
       headerCard={
         <View style={styles.headerCard}>
-          <View>
+          <View style={styles.headerBlock}>
             <Text style={styles.headerLabel}>Check-in Status</Text>
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
@@ -119,9 +122,9 @@ export function StaffHomeScreen() {
             </View>
           </View>
           <View style={styles.headerDivider} />
-          <View>
+          <View style={styles.headerBlock}>
             <Text style={styles.headerLabel}>Date</Text>
-            <Text style={styles.headerValue}>{formatDateLabel(attendance?.workDate)}</Text>
+            <Text style={styles.headerValue}>{dateLabel}</Text>
           </View>
         </View>
       }
@@ -163,7 +166,11 @@ export function StaffHomeScreen() {
           <View style={styles.bannerBody}>
             <Text style={styles.bannerEyebrow}>Action Needed</Text>
             <Text style={styles.bannerTitle}>{criticalPending} critical tasks pending</Text>
-            <Text style={styles.bannerText}>Requires immediate attention on this shift.</Text>
+            <Text style={styles.bannerText}>
+              {criticalPending > 0
+                ? "Requires immediate attention on this shift."
+                : "No critical tasks need escalation right now."}
+            </Text>
           </View>
         </View>
 
@@ -181,7 +188,7 @@ export function StaffHomeScreen() {
         <View style={styles.panel}>
           <View style={styles.panelTitleRow}>
             <Feather name="check-square" size={15} color="#5E7393" />
-            <Text style={styles.panelTitle}>Approval Status</Text>
+            <Text style={styles.panelTitle}>Task Snapshot</Text>
           </View>
           {loading ? (
             <View style={styles.metricGrid}>
@@ -194,9 +201,9 @@ export function StaffHomeScreen() {
             </View>
           ) : (
             <View style={styles.metricGrid}>
-              <MetricCard label="Submitted" value={String(completed)} tint="#2563EB" />
-              <MetricCard label="Sent Back" value="0" tint="#D97706" />
-              <MetricCard label="Sup. Reject" value="0" tint="#E11D48" />
+              <MetricCard label="Assigned" value={String(assigned)} tint="#2563EB" />
+              <MetricCard label="Completed" value={String(completed)} tint="#16A34A" />
+              <MetricCard label="Remaining" value={String(remaining)} tint="#E11D48" />
             </View>
           )}
         </View>
@@ -215,6 +222,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 16,
+    flexWrap: "wrap",
+  },
+  headerBlock: {
+    flexGrow: 1,
+    minWidth: 132,
   },
   headerLabel: {
     color: "rgba(232, 240, 255, 0.8)",
@@ -225,6 +237,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
+    flexShrink: 1,
   },
   statusRow: {
     flexDirection: "row",

@@ -89,10 +89,7 @@ export const styles = StyleSheet.create({
     overflow: "hidden",
   },
   infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -116,7 +113,7 @@ export const styles = StyleSheet.create({
     fontFamily: font.family.black,
     fontSize: 15,
     flexShrink: 1,
-    textAlign: "right",
+    marginLeft: 32,
   },
   divider: {
     height: 1,
@@ -124,6 +121,8 @@ export const styles = StyleSheet.create({
     marginLeft: 46,
   },
   valuePill: {
+    alignSelf: "flex-start",
+    marginLeft: 32,
     borderRadius: radii.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -176,6 +175,7 @@ export const styles = StyleSheet.create({
   functionHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 10,
   },
   functionIconWrap: {
@@ -187,6 +187,7 @@ export const styles = StyleSheet.create({
   },
   functionHeaderBody: {
     flex: 1,
+    minWidth: 0,
   },
   functionTitle: {
     color: "#1F2D46",
@@ -201,6 +202,7 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
   },
   statusPill: {
+    maxWidth: "100%",
     borderRadius: radii.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -227,7 +229,8 @@ export const styles = StyleSheet.create({
   },
   functionTaskRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     gap: 8,
   },
   functionTaskDot: {
@@ -303,6 +306,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    maxWidth: "100%",
     borderRadius: 16,
     backgroundColor: "#F8FBFF",
     borderWidth: 1,
@@ -314,6 +318,7 @@ export const styles = StyleSheet.create({
     color: "#2962FF",
     fontFamily: font.family.bold,
     fontSize: 13,
+    flexShrink: 1,
   },
   logoutButton: {
     flexDirection: "row",

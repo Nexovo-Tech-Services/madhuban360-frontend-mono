@@ -29,7 +29,7 @@ function getStatusPillStyle(tone: "success" | "warning" | undefined) {
   };
 }
 
-function readText(value: unknown, fallback: string): string {
+function readText(value: unknown, fallback = "--"): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
@@ -43,8 +43,9 @@ export function ProfileScreen() {
   const [staffProfile, setStaffProfile] = useState<StaffProfileResponse | null>(null);
   const [managerProfile, setManagerProfile] = useState<ManagerProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const isStaff = String(role ?? user?.role ?? "").trim().toLowerCase() === "staff";
-  const isManager = String(role ?? user?.role ?? "").trim().toLowerCase() === "manager";
+  const normalizedRole = String(role ?? user?.role ?? "").trim().toLowerCase();
+  const isStaff = normalizedRole === "staff";
+  const isManager = normalizedRole === "manager";
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -83,50 +84,38 @@ export function ProfileScreen() {
     router.replace("/(auth)/login");
   }
 
-  const safeStaffAssignment = staffProfile?.assignment_details;
-  const safeStaffStats = staffProfile?.stats;
-  const safeStaffFunctions = Array.isArray(staffProfile?.assigned_functions)
-    ? staffProfile.assigned_functions
-    : [];
-  const safeStaffSkills = Array.isArray(staffProfile?.skills_and_certifications)
-    ? staffProfile.skills_and_certifications.filter(
-        (value): value is string => typeof value === "string" && value.trim().length > 0,
-      )
-    : [];
-  const safeManagerInfo = managerProfile?.profile;
-  const safeManagerBadges = managerProfile?.badges;
-  const safeManagerAccount = managerProfile?.account;
-
   const roleLabel = formatRoleLabel(
-    String(staffProfile?.role ?? safeManagerInfo?.role ?? profile?.role ?? user?.role),
+    String(staffProfile?.role ?? managerProfile?.profile.role ?? profile?.role ?? user?.role),
   );
-  const name = String(
-    staffProfile?.full_name ??
-      safeManagerInfo?.full_name ??
-      profile?.name ??
-      user?.name ??
-      "Rahul Dhumal",
+  const name = readText(
+    staffProfile?.full_name ?? managerProfile?.profile.full_name ?? profile?.name ?? user?.name,
+    `${roleLabel} User`,
   );
   const employeeIdValue =
-    staffProfile?.staff_id ?? safeManagerInfo?.manager_id ?? profile?.id ?? user?.id;
-  const employeeId = employeeIdValue ? `EMP-ID: ${String(employeeIdValue)}` : "EMP-ID: MB-0042";
+    staffProfile?.staff_id ?? managerProfile?.profile.manager_id ?? profile?.id ?? user?.id;
+  const employeeId = employeeIdValue ? `EMP-ID: ${String(employeeIdValue)}` : "EMP-ID: --";
+  const profileInitials =
+    (name.match(/\b\w/g) ?? [roleLabel[0] ?? "U"]).slice(0, 2).join("").toUpperCase();
+
+  const genericManager = profile?.manager as { name?: string } | null | undefined;
+  const genericSupervisor = profile?.supervisor as { name?: string } | null | undefined;
 
   const profileFacts = isStaff
     ? [
         {
           icon: <Feather name="check" size={16} color="#162236" />,
           label: "Assigned Checker",
-          value: readText(safeStaffAssignment?.assigned_checker_name, "Unassigned"),
+          value: readText(staffProfile?.assignment_details.assigned_checker_name, "Unassigned"),
         },
         {
           icon: <Feather name="clipboard" size={16} color="#94A3B8" />,
           label: "Default Tasks / Day",
-          value: `${readNumber(safeStaffAssignment?.default_tasks_per_day)} tasks`,
+          value: `${readNumber(staffProfile?.assignment_details.default_tasks_per_day)} tasks`,
         },
         {
           icon: <MaterialCommunityIcons name="cash-fast" size={16} color="#D8A548" />,
           label: "Attendance Incentive",
-          value: Boolean(safeStaffAssignment?.is_eligible_for_attendance_incentive)
+          value: staffProfile?.assignment_details.is_eligible_for_attendance_incentive
             ? "Eligible"
             : "Not Eligible",
           valueTone: "success" as const,
@@ -137,14 +126,14 @@ export function ProfileScreen() {
           {
             icon: <Feather name="briefcase" size={16} color="#162236" />,
             label: "Shift",
-            value: readText(safeManagerBadges?.shift, "Unassigned"),
+            value: readText(managerProfile?.badges.shift),
           },
           {
             icon: <Feather name="activity" size={16} color="#94A3B8" />,
             label: "Status",
-            value: readText(safeManagerBadges?.status, "Inactive"),
+            value: readText(managerProfile?.badges.status, "Inactive"),
             valueTone:
-              String(safeManagerBadges?.status ?? "")
+              String(managerProfile?.badges.status ?? "")
                 .trim()
                 .toUpperCase()
                 .includes("ACTIVE")
@@ -154,24 +143,34 @@ export function ProfileScreen() {
           {
             icon: <Feather name="user" size={16} color="#162236" />,
             label: "Reporting To",
-            value: readText(safeManagerAccount?.reportingTo, "Not assigned"),
+            value: readText(managerProfile?.account.reportingTo, "Not assigned"),
           },
           {
-            icon: <Feather name="phone" size={16} color="#94A3B8" />,
+            icon: <Feather name="smartphone" size={16} color="#94A3B8" />,
             label: "App Version",
-            value: readText(safeManagerAccount?.appVersion, "--"),
+            value: readText(managerProfile?.account.appVersion),
           },
         ]
       : [
           {
-            icon: <Feather name="check" size={16} color="#162236" />,
-            label: "Assigned Checker",
-            value: String((profile?.reportsTo as string | undefined) ?? "Rahul Tupe"),
+            icon: <Feather name="mail" size={16} color="#162236" />,
+            label: "Email",
+            value: readText(profile?.email),
+          },
+          {
+            icon: <Feather name="briefcase" size={16} color="#94A3B8" />,
+            label: "Role",
+            value: roleLabel,
+          },
+          {
+            icon: <Feather name="users" size={16} color="#162236" />,
+            label: "Reports To",
+            value: readText(genericSupervisor?.name ?? genericManager?.name, "Not assigned"),
           },
         ];
 
   const functionGroups = isStaff
-    ? safeStaffFunctions.map((group) => ({
+    ? staffProfile?.assigned_functions.map((group) => ({
         title: readText(group.function_name, "Assigned Function"),
         subtitle: group.is_primary ? "Primary Function" : "Secondary Function",
         status: readText(group.status, "Assigned"),
@@ -194,14 +193,14 @@ export function ProfileScreen() {
             icon: "map-pin",
           };
         }),
-      }))
+      })) ?? []
     : isManager
       ? [
           {
-            title: readText(safeManagerAccount?.propertyLabel, "Assigned Property"),
-            subtitle: readText(safeManagerInfo?.email, "Manager account"),
-            status: readText(safeManagerBadges?.status, "INACTIVE"),
-            tone: String(safeManagerBadges?.status ?? "")
+            title: readText(managerProfile?.account.propertyLabel, "Assigned Property"),
+            subtitle: readText(managerProfile?.profile.email, "Manager account"),
+            status: readText(managerProfile?.badges.status, "Inactive"),
+            tone: String(managerProfile?.badges.status ?? "")
               .trim()
               .toUpperCase()
               .includes("ACTIVE")
@@ -211,8 +210,8 @@ export function ProfileScreen() {
             icon: "shield" as const,
             tasks: [
               {
-                text: `Shift - ${readText(safeManagerBadges?.shift, "Unassigned")}`,
-                tone: readText(safeManagerBadges?.status, ""),
+                text: `Shift - ${readText(managerProfile?.badges.shift, "Unassigned")}`,
+                tone: readText(managerProfile?.badges.status, ""),
                 toneColor: "#2962FF",
                 icon: "clock",
               },
@@ -223,23 +222,25 @@ export function ProfileScreen() {
 
   const stats = isStaff
     ? [
-        { label: "Functions", value: String(readNumber(safeStaffStats?.functions)) },
-        { label: "Zones", value: String(readNumber(safeStaffStats?.zones)) },
-        { label: "Location", value: String(readNumber(safeStaffStats?.locations)) },
+        { label: "Functions", value: String(readNumber(staffProfile?.stats.functions)) },
+        { label: "Zones", value: String(readNumber(staffProfile?.stats.zones)) },
+        { label: "Location", value: String(readNumber(staffProfile?.stats.locations)) },
       ]
     : isManager
       ? [
-          { label: "Role", value: String(safeManagerInfo?.role ?? "MANAGER") },
-          { label: "Shift", value: String(safeManagerBadges?.shift ?? "--") },
-          { label: "Status", value: String(safeManagerBadges?.status ?? "--") },
+          { label: "Role", value: readText(managerProfile?.profile.role, "MANAGER") },
+          { label: "Shift", value: readText(managerProfile?.badges.shift) },
+          { label: "Status", value: readText(managerProfile?.badges.status) },
         ]
       : [];
 
   const skills = isStaff
-    ? safeStaffSkills
+    ? staffProfile?.skills_and_certifications.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ) ?? []
     : isManager
-      ? [safeManagerAccount?.propertyLabel, safeManagerInfo?.email].filter(
-          (value): value is string => Boolean(value),
+      ? [managerProfile?.account.propertyLabel, managerProfile?.profile.email].filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0,
         )
       : [];
 
@@ -251,9 +252,7 @@ export function ProfileScreen() {
       headerCard={
         <View style={styles.heroCard}>
           <View style={styles.heroAvatar}>
-            <Text style={styles.heroAvatarText}>
-              {(name.match(/\b\w/g) ?? ["R", "D"]).slice(0, 2).join("")}
-            </Text>
+            <Text style={styles.heroAvatarText}>{profileInitials}</Text>
           </View>
           <View style={styles.heroBody}>
             <Text style={styles.heroName}>{name}</Text>
@@ -282,8 +281,10 @@ export function ProfileScreen() {
             ? [0, 1, 2].map((item) => (
                 <View key={item}>
                   <View style={styles.infoRow}>
+                    <View style={styles.infoLabelWrap}>
+                      <SkeletonBlock style={{ width: 120, height: 16, borderRadius: 8 }} />
+                    </View>
                     <SkeletonBlock style={{ width: 120, height: 16, borderRadius: 8 }} />
-                    <SkeletonBlock style={{ width: 96, height: 16, borderRadius: 8 }} />
                   </View>
                   {item < 2 ? <View style={styles.divider} /> : null}
                 </View>
@@ -326,54 +327,56 @@ export function ProfileScreen() {
                     <SkeletonBlock style={{ height: 48, borderRadius: 16 }} />
                   </View>
                 ))
-              : functionGroups.map((group, groupIndex) => {
-                  const status = getStatusPillStyle(group.tone);
-                  return (
-                    <View key={`${group.title}-${groupIndex}`} style={styles.functionGroup}>
-                      <View style={styles.functionHeader}>
-                        <View
-                          style={[
-                            styles.functionIconWrap,
-                            { backgroundColor: `${group.accent}22` },
-                          ]}
-                        >
-                          <Feather name={group.icon} size={15} color={group.accent} />
-                        </View>
-                        <View style={styles.functionHeaderBody}>
-                          <Text style={styles.functionTitle}>{group.title}</Text>
-                          <Text style={styles.functionSubtitle}>{group.subtitle}</Text>
-                        </View>
-                        <View style={[styles.statusPill, status.badge]}>
-                          <Text style={[styles.statusPillText, status.text]}>{group.status}</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.functionTaskList}>
-                        {group.tasks.map((task, taskIndex) => (
-                          <View key={`${task.text}-${taskIndex}`} style={styles.functionTaskRow}>
-                            <View
-                              style={[styles.functionTaskDot, { backgroundColor: task.toneColor }]}
-                            />
-                            <Feather name={task.icon as never} size={12} color={task.toneColor} />
-                            <Text style={styles.functionTaskText}>{task.text}</Text>
-                            {task.tone ? (
-                              <View
-                                style={[
-                                  styles.taskTonePill,
-                                  { backgroundColor: `${task.toneColor}18` },
-                                ]}
-                              >
-                                <Text style={[styles.taskToneText, { color: task.toneColor }]}>
-                                  {task.tone}
-                                </Text>
-                              </View>
-                            ) : null}
+              : functionGroups.length > 0
+                ? functionGroups.map((group, groupIndex) => {
+                    const status = getStatusPillStyle(group.tone);
+                    return (
+                      <View key={`${group.title}-${groupIndex}`} style={styles.functionGroup}>
+                        <View style={styles.functionHeader}>
+                          <View
+                            style={[
+                              styles.functionIconWrap,
+                              { backgroundColor: `${group.accent}22` },
+                            ]}
+                          >
+                            <Feather name={group.icon} size={15} color={group.accent} />
                           </View>
-                        ))}
+                          <View style={styles.functionHeaderBody}>
+                            <Text style={styles.functionTitle}>{group.title}</Text>
+                            <Text style={styles.functionSubtitle}>{group.subtitle}</Text>
+                          </View>
+                          <View style={[styles.statusPill, status.badge]}>
+                            <Text style={[styles.statusPillText, status.text]}>{group.status}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.functionTaskList}>
+                          {group.tasks.map((task, taskIndex) => (
+                            <View key={`${task.text}-${taskIndex}`} style={styles.functionTaskRow}>
+                              <View
+                                style={[styles.functionTaskDot, { backgroundColor: task.toneColor }]}
+                              />
+                              <Feather name={task.icon as never} size={12} color={task.toneColor} />
+                              <Text style={styles.functionTaskText}>{task.text}</Text>
+                              {task.tone ? (
+                                <View
+                                  style={[
+                                    styles.taskTonePill,
+                                    { backgroundColor: `${task.toneColor}18` },
+                                  ]}
+                                >
+                                  <Text style={[styles.taskToneText, { color: task.toneColor }]}>
+                                    {task.tone}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })
+                : <Text style={styles.skillChipText}>No function or zone assignments are available.</Text>}
           </View>
 
           {stats.length > 0 ? (

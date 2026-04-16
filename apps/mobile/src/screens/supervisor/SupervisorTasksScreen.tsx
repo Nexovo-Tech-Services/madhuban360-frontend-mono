@@ -66,123 +66,6 @@ interface ReviewTask {
   beforePhotoUrl?: string | null;
   afterPhotoUrl?: string | null;
 }
-
-const REVIEW_TASKS: ReviewTask[] = [
-  {
-    id: "vip-lounge",
-    priority: "CRITICAL",
-    floor: "Floor 3",
-    title: "VIP Lounge Deep Clean",
-    assigneeInitials: "RA",
-    assigneeName: "Rahul D.",
-    time: "10:45 AM",
-    status: "Needs Review",
-    statusNote: "10m overdue",
-    tone: "red" as const,
-    label: "5 tasks",
-    area: "Floor 3",
-    location: "AMTP, Baner, Pune",
-    slot: "8:10 - 8:30",
-    beforeTime: "10:15 AM",
-    afterTime: "10:35 AM",
-    issueTime: "03:52 PM",
-  },
-  {
-    id: "lobby-glass",
-    priority: "HIGH",
-    floor: "Ground Floor",
-    title: "Lobby Glass Cleaning",
-    assigneeInitials: "RA",
-    assigneeName: "Rahul D.",
-    time: "11:30 AM",
-    status: "Needs Review",
-    statusNote: "Due in 5m",
-    tone: "orange" as const,
-    label: "3 tasks",
-    area: "Ground Floor",
-    location: "AMTP, Baner, Pune",
-    slot: "11:00 - 11:30",
-    beforeTime: "11:05 AM",
-    afterTime: "11:28 AM",
-    issueTime: "04:05 PM",
-  },
-  {
-    id: "washroom-two",
-    priority: "HIGH",
-    floor: "Floor 1",
-    title: "Washroom #2 Cleaning",
-    assigneeInitials: "AM",
-    assigneeName: "Amit K.",
-    time: "10:30 AM",
-    status: "Sent Back",
-    statusNote: "Waiting on maker",
-    tone: "orange" as const,
-    label: "5 tasks",
-    area: "Floor 1",
-    location: "AMTP, Baner, Pune",
-    slot: "10:00 - 10:30",
-    beforeTime: "10:02 AM",
-    afterTime: null,
-    issueTime: "03:20 PM",
-  },
-  {
-    id: "ceo-cabin",
-    priority: "CRITICAL",
-    floor: "Floor 3",
-    title: "CEO Cabin Prep",
-    assigneeInitials: "RA",
-    assigneeName: "Ravi S.",
-    time: "09:00 AM",
-    status: "Approved",
-    statusNote: "Checked",
-    tone: "green" as const,
-    label: "2 tasks",
-    area: "Floor 3",
-    location: "AMTP, Baner, Pune",
-    slot: "8:30 - 9:00",
-    beforeTime: "08:35 AM",
-    afterTime: "08:58 AM",
-    issueTime: "02:42 PM",
-  },
-  {
-    id: "parking",
-    priority: "MEDIUM",
-    floor: "Basement",
-    title: "Parking Sweeping",
-    assigneeInitials: "PR",
-    assigneeName: "Prakash",
-    time: "12:00 PM",
-    status: "Pending",
-    statusNote: "Not Started",
-    tone: "gray" as const,
-    label: "4 tasks",
-    area: "Basement",
-    location: "AMTP, Baner, Pune",
-    slot: "11:30 - 12:00",
-    beforeTime: "11:32 AM",
-    afterTime: null,
-    issueTime: "04:20 PM",
-  },
-  {
-    id: "conference",
-    priority: "MEDIUM",
-    floor: "Floor 2",
-    title: "Conference Room Setup",
-    assigneeInitials: "RA",
-    assigneeName: "Rahul D.",
-    time: "11:15 AM",
-    status: "Needs Review",
-    statusNote: "Just Finished",
-    tone: "orange" as const,
-    label: "4 tasks",
-    area: "Floor 2",
-    location: "AMTP, Baner, Pune",
-    slot: "10:45 - 11:15",
-    beforeTime: "10:46 AM",
-    afterTime: "11:12 AM",
-    issueTime: "03:40 PM",
-  },
-] as const;
 type ReviewDecision = "approve" | "send-back" | null;
 
 function formatTime(value: string | null | undefined) {
@@ -233,7 +116,7 @@ function toTone(status: ReviewTask["status"], overdueLabel?: string | null): Tas
 }
 
 function mapReviewsData(data: SupervisorReviewsResponse | null): ReviewTask[] {
-  if (!data) return [...REVIEW_TASKS];
+  if (!data) return [];
   return data.items.map((item) => {
     const status = toUiStatus(item.approvalStatus);
     const floor = item.zone.floorNo ? `Floor ${item.zone.floorNo}` : item.zone.propertyName;
@@ -337,7 +220,7 @@ function toManagerApiStatus(
 }
 
 function mapManagerTasksData(data: ManagerTasksResponse | null): ReviewTask[] {
-  if (!data) return [...REVIEW_TASKS];
+  if (!data) return [];
   return data.tasks.map((item, index) => {
     const record = asRecord(item);
     const priority = readString(
@@ -552,6 +435,10 @@ function EvidenceCard({
           imageStyle={styles.evidenceImage}
           style={[styles.evidencePreview, styles.evidencePreviewFilled]}
         >
+          <View style={styles.evidencePreviewBadge}>
+            <Ionicons name="expand-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.evidencePreviewBadgeText}>Preview</Text>
+          </View>
           <View style={styles.evidenceOverlay}>{content}</View>
         </ImageBackground>
       ) : (
@@ -813,7 +700,7 @@ export function SupervisorTasksScreen() {
   const [selectedManagerTaskDate] = useState(() => formatManagerTaskDate());
   const [reviewData, setReviewData] = useState<SupervisorReviewsResponse | null>(null);
   const [managerTaskData, setManagerTaskData] = useState<ManagerTasksResponse | null>(null);
-  const [tasksState, setTasksState] = useState<ReviewTask[]>([...REVIEW_TASKS]);
+  const [tasksState, setTasksState] = useState<ReviewTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskDetail, setSelectedTaskDetail] = useState<SupervisorReviewDetailResponse | null>(null);
   const [decision, setDecision] = useState<ReviewDecision>(null);
@@ -880,7 +767,7 @@ export function SupervisorTasksScreen() {
         if (active) {
           setReviewData(null);
           setManagerTaskData(null);
-          setTasksState([...REVIEW_TASKS]);
+          setTasksState([]);
         }
       })
       .finally(() => {
@@ -1207,6 +1094,15 @@ export function SupervisorTasksScreen() {
                 </View>
               </View>
             ))
+          ) : tasks.length === 0 ? (
+            <View style={styles.emptyStateCard}>
+              <Text style={styles.emptyStateTitle}>No review tasks found</Text>
+              <Text style={styles.emptyStateText}>
+                {isManager
+                  ? "Select a supervisor and status to view that queue."
+                  : "Tasks that need review, approval, or send-back will appear here."}
+              </Text>
+            </View>
           ) : tasks.map((task) => (
             <Pressable key={task.id} style={styles.cardWrap} onPress={() => openTask(task)}>
               <View
@@ -1535,6 +1431,27 @@ const styles = StyleSheet.create({
   statusApprovedTextActive: {
     color: "#0F5E36",
   },
+  emptyStateCard: {
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E7ECF4",
+    paddingHorizontal: 18,
+    paddingVertical: 22,
+    gap: 8,
+  },
+  emptyStateTitle: {
+    color: "#1E293B",
+    fontFamily: font.family.bold,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  emptyStateText: {
+    color: "#6B7A91",
+    fontFamily: font.family.medium,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   cardWrap: {
     borderRadius: 24,
     overflow: "hidden",
@@ -1819,6 +1736,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(15,23,42,0.16)",
+  },
+  evidencePreviewBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    backgroundColor: "rgba(15,23,42,0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  evidencePreviewBadgeText: {
+    color: "#FFFFFF",
+    fontFamily: font.family.bold,
+    fontSize: 11,
   },
   evidencePreviewFilled: {
     backgroundColor: "#F8FAFC",

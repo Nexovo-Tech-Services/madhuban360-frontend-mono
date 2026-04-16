@@ -100,7 +100,6 @@ export default function SplashScreen() {
         <View style={styles.logoWrap}>
           <MadhubanLogo width="100%" height="100%" />
         </View>
-        <Text style={styles.brand}>MADHUBAN</Text>
       </Animated.View>
 
       <View style={styles.metaWrap}>

@@ -9,12 +9,14 @@ export const styles = StyleSheet.create({
   segmentedControl: {
     flexDirection: "row",
     gap: 10,
+    flexWrap: "wrap",
     padding: 6,
     borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.08)",
   },
   segmentButton: {
     flex: 1,
+    minWidth: 120,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
@@ -35,9 +37,11 @@ export const styles = StyleSheet.create({
   duoGrid: {
     flexDirection: "row",
     gap: 12,
+    flexWrap: "wrap",
   },
   halfCard: {
     flex: 1,
+    minWidth: 150,
   },
   card: {
     borderRadius: 24,
@@ -273,8 +277,9 @@ export const styles = StyleSheet.create({
   },
   sectionHeaderRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 12,
     paddingHorizontal: 2,
   },
@@ -289,6 +294,8 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    maxWidth: "100%",
+    alignSelf: "flex-start",
     borderRadius: 12,
     backgroundColor: "#23324B",
     paddingHorizontal: 14,
@@ -298,13 +305,16 @@ export const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontFamily: font.family.bold,
     fontSize: 13,
+    flexShrink: 1,
   },
   leaveStatsRow: {
     flexDirection: "row",
     gap: 10,
+    flexWrap: "wrap",
   },
   leaveStatCard: {
     flex: 1,
+    minWidth: 92,
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -340,15 +350,21 @@ export const styles = StyleSheet.create({
   },
   applicationRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 12,
     paddingVertical: 6,
+  },
+  applicationBody: {
+    flex: 1,
+    minWidth: 0,
   },
   applicationTitle: {
     color: "#23324B",
     fontFamily: font.family.bold,
     fontSize: 17,
+    flexShrink: 1,
   },
   applicationMeta: {
     marginTop: 2,
@@ -385,5 +401,11 @@ export const styles = StyleSheet.create({
   },
   statusDangerText: {
     color: "#FF4D6D",
+  },
+  emptyStateText: {
+    color: "#8FA0B7",
+    fontFamily: font.family.medium,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

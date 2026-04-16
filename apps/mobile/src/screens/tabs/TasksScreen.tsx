@@ -184,7 +184,11 @@ function getTaskActionState(task: TaskItem): TaskActionState {
       helperText: "After photo submitted. Waiting for checker review.",
     };
   }
-  if (task.beforePhotoUrl && !task.afterPhotoUrl) {
+  if (
+    taskStatus === "STARTED" ||
+    taskStatus === "START" ||
+    (task.beforePhotoUrl && !task.afterPhotoUrl)
+  ) {
     return {
       label: "After Photo Pending",
       actionable: true,
@@ -726,7 +730,12 @@ export function TasksScreen() {
         subtitle="Track action items and shift workload."
         headerCard={<ShiftProgressCard counts={response?.counts ?? null} progress={response?.progress ?? null} />}
       >
-        <View style={s.root}>
+        <RefreshableScrollView
+          style={s.root}
+          contentContainerStyle={s.rootContent}
+          showsVerticalScrollIndicator={false}
+          onRefresh={() => load(filter)}
+        >
           <View style={s.filterRow}>
             {FILTERS.map((item) => {
               const active = filter === item.key;
@@ -758,12 +767,7 @@ export function TasksScreen() {
               ))}
             </View>
           ) : (
-            <RefreshableScrollView
-              style={s.list}
-              contentContainerStyle={s.listContent}
-              showsVerticalScrollIndicator={false}
-              onRefresh={() => load(filter)}
-            >
+            <View style={s.listContent}>
               {tasks.length === 0 ? (
                 <View style={s.emptyCard}>
                   <Text style={s.emptyTitle}>No tasks here</Text>
@@ -774,9 +778,9 @@ export function TasksScreen() {
                   <TaskCard key={`${task.id}-${index}`} task={task} onAction={setSelectedTask} />
                 ))
               )}
-            </RefreshableScrollView>
+            </View>
           )}
-        </View>
+        </RefreshableScrollView>
       </RolePageLayout>
 
       <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
@@ -854,7 +858,10 @@ export function TasksScreen() {
 const s = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  rootContent: {
     gap: 14,
+    paddingBottom: 24,
   },
   progressCard: { gap: 8 },
   progressTopRow: {
@@ -946,10 +953,8 @@ const s = StyleSheet.create({
     lineHeight: 14,
   },
   filterBadgeTextActive: { color: "#FFFFFF" },
-  list: { flex: 1 },
   listContent: {
     gap: 12,
-    paddingBottom: 24,
   },
   taskCard: {
     backgroundColor: "#FFFFFF",

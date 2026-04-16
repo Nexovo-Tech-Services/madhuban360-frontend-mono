@@ -9,6 +9,7 @@ import {
   type ManagerDashboardResponse,
   type SupervisorDashboardResponse,
 } from "@madhuban/api";
+import { font } from "@madhuban/theme";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
@@ -19,61 +20,6 @@ import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
 import { useAuth } from "../../context/AuthContext";
 import { styles } from "../../styles/screens/tabs/home.styles";
-
-const FALLBACK_SUMMARY_STATS = [
-  { icon: "alert-circle-outline", value: "12", label: "Needs Review", tint: "#FDB321" },
-  { icon: "shield-checkmark-outline", value: "45", label: "Approved", tint: "#2CD88A" },
-  { icon: "close-circle-outline", value: "3", label: "Rejected", tint: "#FF5964" },
-] as const;
-
-const FALLBACK_ATTENTION_ITEMS = [
-  {
-    status: "10M OVERDUE",
-    title: "VIP Lounge Deep Clean",
-    initials: "RA",
-    assignee: "Rahul D.",
-    variant: "danger" as const,
-  },
-  {
-    status: "DUE IN 5M",
-    title: "CEO Cabin Prep",
-    initials: "AM",
-    assignee: "Amit K.",
-    variant: "warning" as const,
-  },
-] as const;
-
-const FALLBACK_ZONE_HEALTH = [
-  { title: "Washrooms", value: 92, dot: "#20C97A" },
-  { title: "Cafeteria", value: 65, dot: "#F59F0B" },
-  { title: "Lobby", value: 100, dot: "#20C97A" },
-  { title: "Parking", value: 45, dot: "#FF5561" },
-] as const;
-
-const FALLBACK_ACTIVITY_ITEMS = [
-  {
-    status: "Approved",
-    time: "10:45 AM",
-    detail: "Main Entrance Mopping",
-    assignee: "Rahul D.",
-    tone: "success" as const,
-  },
-  {
-    status: "Sent Back",
-    time: "10:30 AM",
-    detail: "Washroom #2 Cleaning",
-    assignee: "Amit K.",
-    tone: "muted" as const,
-    note: "Note: Missing soap refill",
-  },
-  {
-    status: "Approved",
-    time: "10:15 AM",
-    detail: "Conference Room Prep",
-    assignee: "Rahul D.",
-    tone: "success" as const,
-  },
-] as const;
 
 function HeroGradient() {
   return (
@@ -216,6 +162,39 @@ function ActivityItem({
   );
 }
 
+function EmptySectionCard({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <View style={styles.card}>
+      <Text
+        style={{
+          color: "#24324A",
+          fontFamily: font.family.bold,
+          fontSize: 14,
+          lineHeight: 18,
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          color: "#7C8AA2",
+          fontFamily: font.family.medium,
+          fontSize: 12,
+          lineHeight: 18,
+        }}
+      >
+        {detail}
+      </Text>
+    </View>
+  );
+}
+
 function getInitials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "RT";
@@ -242,15 +221,47 @@ function mapDashboardUi(
 ) {
   if (!dashboard) {
     return {
-      summaryStats: FALLBACK_SUMMARY_STATS,
-      attentionItems: FALLBACK_ATTENTION_ITEMS,
-      zoneHealth: FALLBACK_ZONE_HEALTH,
-      activityItems: FALLBACK_ACTIVITY_ITEMS,
-      progressPercent: 62,
-      progressDone: 45,
-      progressPending: 15,
-      siteLabel: "AMTP - BANER - DAY",
-      shiftStatus: "Shift in progress",
+      summaryStats: [
+        {
+          icon: "alert-circle-outline" as const,
+          value: "0",
+          label: "Needs Review",
+          tint: "#FDB321",
+        },
+        {
+          icon: "shield-checkmark-outline" as const,
+          value: "0",
+          label: "Approved",
+          tint: "#2CD88A",
+        },
+        {
+          icon: "close-circle-outline" as const,
+          value: "0",
+          label: "Rejected",
+          tint: "#FF5964",
+        },
+      ],
+      attentionItems: [] as Array<{
+        status: string;
+        title: string;
+        initials: string;
+        assignee: string;
+        variant: "danger" | "warning";
+      }>,
+      zoneHealth: [] as Array<{ title: string; value: number; dot: string }>,
+      activityItems: [] as Array<{
+        status: string;
+        time: string;
+        detail: string;
+        assignee: string;
+        tone: "success" | "muted";
+        note?: string;
+      }>,
+      progressPercent: 0,
+      progressDone: 0,
+      progressPending: 0,
+      siteLabel: "",
+      shiftStatus: "No shift data available",
       roleLabel: "SUPERVISOR",
     };
   }
@@ -310,7 +321,7 @@ function mapDashboardUi(
             assignee: item.assigneeName,
             variant: item.urgencyKind === "OVERDUE" ? ("danger" as const) : ("warning" as const),
           }))
-        : FALLBACK_ATTENTION_ITEMS.slice(0, 1),
+        : [],
     zoneHealth:
       zones.length > 0
         ? zones.slice(0, 4).map((zone) => ({
@@ -318,7 +329,7 @@ function mapDashboardUi(
             value: zone.percent,
             dot: healthColor(zone.healthBand, zone.percent),
           }))
-        : FALLBACK_ZONE_HEALTH,
+        : [],
     activityItems:
       recentActivity.length > 0
         ? recentActivity.slice(0, 4).map((item) => ({
@@ -334,7 +345,7 @@ function mapDashboardUi(
             tone: item.action === "APPROVED" ? ("success" as const) : ("muted" as const),
             note: item.note ? `Note: ${item.note}` : undefined,
           }))
-        : FALLBACK_ACTIVITY_ITEMS,
+        : [],
     progressPercent: completion.percent ?? 0,
     progressDone: completion.done ?? 0,
     progressPending: completion.pending ?? 0,
@@ -419,7 +430,10 @@ export function SupervisorHomeScreen() {
   }, [loadDashboard, supportsDashboard]);
 
   const ui = useMemo(() => mapDashboardUi(dashboard), [dashboard]);
-  const displayName = dashboard?.profile?.name?.trim() || user?.name?.trim() || "Rahul Type";
+  const displayName =
+    dashboard?.profile?.name?.trim() ||
+    user?.name?.trim() ||
+    (isManager ? "Manager" : "Supervisor");
   const initials = dashboard?.profile?.initials || getInitials(displayName);
 
   return (
@@ -525,11 +539,18 @@ export function SupervisorHomeScreen() {
                 <Text style={styles.sectionAction}>{"See All ->"}</Text>
               </View>
 
-              <View style={styles.attentionGrid}>
-                {ui.attentionItems.map((item) => (
-                  <AttentionCard key={`${item.title}-${item.assignee}`} {...item} />
-                ))}
-              </View>
+              {ui.attentionItems.length > 0 ? (
+                <View style={styles.attentionGrid}>
+                  {ui.attentionItems.map((item) => (
+                    <AttentionCard key={`${item.title}-${item.assignee}`} {...item} />
+                  ))}
+                </View>
+              ) : (
+                <EmptySectionCard
+                  title="No urgent tasks right now"
+                  detail="Everything that needs review will appear here as soon as the API reports it."
+                />
+              )}
             </View>
           )}
 
@@ -545,11 +566,18 @@ export function SupervisorHomeScreen() {
                 <Text style={styles.sectionAction}>By Zone</Text>
               </View>
 
-              <View style={styles.zoneGrid}>
-                {ui.zoneHealth.map((zone) => (
-                  <ZoneTile key={zone.title} {...zone} />
-                ))}
-              </View>
+              {ui.zoneHealth.length > 0 ? (
+                <View style={styles.zoneGrid}>
+                  {ui.zoneHealth.map((zone) => (
+                    <ZoneTile key={zone.title} {...zone} />
+                  ))}
+                </View>
+              ) : (
+                <EmptySectionCard
+                  title="No zone health data yet"
+                  detail="Zone completion details will appear here once the API returns zone progress."
+                />
+              )}
             </View>
           )}
 
@@ -562,15 +590,22 @@ export function SupervisorHomeScreen() {
                 <Text style={styles.sectionTitleSecondary}>Recent Activity</Text>
               </View>
 
-              <View style={styles.activityList}>
-                {ui.activityItems.map((item, index) => (
-                  <ActivityItem
-                    key={`${item.status}-${item.time}-${index}`}
-                    {...item}
-                    isLast={index === ui.activityItems.length - 1}
-                  />
-                ))}
-              </View>
+              {ui.activityItems.length > 0 ? (
+                <View style={styles.activityList}>
+                  {ui.activityItems.map((item, index) => (
+                    <ActivityItem
+                      key={`${item.status}-${item.time}-${index}`}
+                      {...item}
+                      isLast={index === ui.activityItems.length - 1}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <EmptySectionCard
+                  title="No recent activity"
+                  detail="Approvals, send-backs, and other review actions will appear here when available."
+                />
+              )}
             </View>
           )}
         </View>

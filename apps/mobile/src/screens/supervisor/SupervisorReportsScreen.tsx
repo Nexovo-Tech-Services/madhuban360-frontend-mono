@@ -13,6 +13,7 @@ import { font, radii } from "@madhuban/theme";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
@@ -67,192 +68,58 @@ type EmployeeItem = {
   }[];
 };
 
-const SUMMARY = {
-  completion: 82,
-  approved: 145,
-  pending: 32,
-  rejected: 5,
-};
-
-const ZONES: ZoneItem[] = [
-  {
-    key: "washrooms",
-    name: "Washrooms",
-    value: 92,
-    checked: "45 of 49 tasks completed",
-    tone: "green",
-    tasks: [
-      { name: "Deep Cleaning", assignee: "Assigned to Ravi S.", status: "Approved", time: "10:45 AM" },
-      { name: "Restock Supplies", assignee: "Assigned to Amit K.", status: "Pending", time: "11:15 AM" },
-      { name: "Trash Removal", assignee: "Assigned to Sunil", status: "Approved", time: "09:30 AM" },
-    ],
-  },
-  {
-    key: "vip",
-    name: "VIP Area",
-    value: 100,
-    checked: "12 of 12 tasks completed",
-    tone: "blue",
-    tasks: [
-      { name: "Cabin Touch Up", assignee: "Assigned to Ravi S.", status: "Approved", time: "10:05 AM" },
-      { name: "Amenity Refill", assignee: "Assigned to Sunil", status: "Approved", time: "09:25 AM" },
-    ],
-  },
-  {
-    key: "cafeteria",
-    name: "Cafeteria",
-    value: 65,
-    checked: "20 of 31 tasks completed",
-    tone: "orange",
-    tasks: [
-      { name: "Pantry Surface Check", assignee: "Assigned to Amit K.", status: "Pending", time: "11:40 AM" },
-      { name: "Counter Cleanup", assignee: "Assigned to Sunil", status: "Approved", time: "10:10 AM" },
-    ],
-  },
-  {
-    key: "parking",
-    name: "Parking",
-    value: 45,
-    checked: "9 of 20 tasks completed",
-    tone: "red",
-    tasks: [
-      { name: "No Show Follow-up", assignee: "Assigned to Prakash", status: "Pending", time: "10:45 AM" },
-      { name: "Entry Lane Sweep", assignee: "Assigned to Ravi S.", status: "Approved", time: "09:55 AM" },
-      { name: "Spot Check", assignee: "Assigned to Sunil", status: "Pending", time: "11:10 AM" },
-    ],
-  },
-];
-
-const FUNCTIONS: FunctionItem[] = [
-  {
-    key: "cleaning",
-    icon: "droplet",
-    name: "Cleaning",
-    value: 94,
-    tone: "green",
-    totalTasks: 124,
-    approved: 118,
-    topPerformer: "Sunil K.",
-    quality: "98% Quality",
-  },
-  {
-    key: "pantry",
-    icon: "coffee",
-    name: "Pantry",
-    value: 88,
-    tone: "blue",
-  },
-  {
-    key: "security",
-    icon: "shield",
-    name: "Security Assist",
-    value: 100,
-    tone: "green",
-  },
-  {
-    key: "maintenance",
-    icon: "tool",
-    name: "Maintenance",
-    value: 72,
-    tone: "orange",
-  },
-];
-
-const EMPLOYEES: EmployeeItem[] = [
-  {
-    key: "sunil",
-    initials: "SU",
-    name: "Sunil K.",
-    team: "Housekeeping",
-    score: 98,
-    tasks: 24,
-    onTime: 100,
-    recentLogs: [
-      {
-        title: "VIP Lounge Deep Clean",
-        time: "10:15 AM",
-        rating: "5/5",
-        status: "DONE",
-      },
-      {
-        title: "Washroom #2 Maintenance",
-        time: "11:00 AM",
-        rating: "--",
-        status: "IN PROG",
-      },
-    ],
-  },
-  {
-    key: "ravi",
-    initials: "RA",
-    name: "Ravi S.",
-    team: "Housekeeping",
-    score: 95,
-    tasks: 22,
-    onTime: 92,
-    recentLogs: [
-      {
-        title: "Main Lobby Sweep",
-        time: "09:40 AM",
-        rating: "4/5",
-        status: "DONE",
-      },
-    ],
-  },
-  {
-    key: "amit",
-    initials: "AM",
-    name: "Amit K.",
-    team: "Pantry",
-    score: 88,
-    tasks: 18,
-    onTime: 85,
-    recentLogs: [
-      {
-        title: "Pantry Counter Reset",
-        time: "10:30 AM",
-        rating: "4/5",
-        status: "DONE",
-      },
-    ],
-  },
-];
-
-const ESCALATIONS = [
-  {
-    title: "No Show",
-    detail: "Maker Prakash did not report to Parking area",
-    time: "10:45 AM",
-  },
-  {
-    title: "Supply Issue",
-    detail: "Out of liquid soap in Washroom #3",
-    time: "09:15 AM",
-  },
-] as const;
-
 function CompletionRing({ value }: { value: number }) {
-  const segments = Array.from({ length: 6 }, (_, index) => index);
+  const size = 122;
+  const strokeWidth = 14;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(100, value));
+  const dashOffset = circumference - (progress / 100) * circumference;
 
   return (
     <View style={styles.ringWrap}>
-      {segments.map((segment) => {
-        const active = segment !== 1 && segment !== 4;
-        return (
-          <View
-            key={segment}
-            style={[
-              styles.ringSegment,
-              { transform: [{ rotate: `${segment * 60}deg` }] },
-            ]}
-          >
-            <View style={[styles.ringArc, active ? styles.ringArcActive : styles.ringArcMuted]} />
-          </View>
-        );
-      })}
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#E9EEF6"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#FFA113"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeLinecap="round"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
       <View style={styles.ringCenter}>
         <Text style={styles.ringValue}>{value}%</Text>
         <Text style={styles.ringLabel}>COMPLETION</Text>
+      </View>
+    </View>
+  );
+}
+
+function EmptyCard({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyCardTitle}>{title}</Text>
+        <Text style={styles.emptyCardText}>{text}</Text>
       </View>
     </View>
   );
@@ -336,11 +203,16 @@ function mapReportData(
 ) {
   if (!report) {
     return {
-      summary: SUMMARY,
-      zones: ZONES,
-      functions: FUNCTIONS,
-      employees: EMPLOYEES,
-      escalations: ESCALATIONS,
+      summary: {
+        completion: 0,
+        approved: 0,
+        pending: 0,
+        rejected: 0,
+      },
+      zones: [] as ZoneItem[],
+      functions: [] as FunctionItem[],
+      employees: [] as EmployeeItem[],
+      escalations: [] as Array<{ title: string; detail: string; time: string }>,
     };
   }
 
@@ -361,7 +233,7 @@ function mapReportData(
             tone: mapReportTone(zone.percent),
             tasks: [] as ZoneTask[],
           }))
-        : ZONES,
+        : [],
     functions:
       report.functions.length > 0
         ? report.functions.map((item) => ({
@@ -376,7 +248,7 @@ function mapReportData(
               report.employees.slice().sort((a, b) => b.scorePercent - a.scorePercent)[0]?.name ?? "--",
             quality: `${item.percent}% Quality`,
           }))
-        : FUNCTIONS,
+        : [],
     employees:
       report.employees.length > 0
         ? report.employees.map((employee) => {
@@ -398,7 +270,7 @@ function mapReportData(
                 })) ?? [],
             };
           })
-        : EMPLOYEES,
+        : [],
     escalations:
       report.escalations.length > 0
         ? report.escalations.map((item) => ({
@@ -411,7 +283,7 @@ function mapReportData(
                   : item.label,
             time: formatTime(item.deadlineAt ?? item.time),
           }))
-        : ESCALATIONS,
+        : [],
   };
 }
 
@@ -453,9 +325,9 @@ export function SupervisorReportsScreen() {
   const isManager = normalizedRole === "manager";
   const supportsReports = isSupervisor || isManager;
   const [selectedTab, setSelectedTab] = useState<ReportTab>("OVERVIEW");
-  const [expandedZone, setExpandedZone] = useState<string>("parking");
-  const [expandedFunction, setExpandedFunction] = useState<string>("cleaning");
-  const [expandedEmployee, setExpandedEmployee] = useState<string>("sunil");
+  const [expandedZone, setExpandedZone] = useState<string>("");
+  const [expandedFunction, setExpandedFunction] = useState<string>("");
+  const [expandedEmployee, setExpandedEmployee] = useState<string>("");
   const [report, setReport] = useState<
     SupervisorShiftReportResponse | ManagerShiftReportResponse | null
   >(null);
@@ -553,66 +425,81 @@ export function SupervisorReportsScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="location-outline" size={14} color="#4F7CFF" />
-              <Text style={styles.sectionTitle}>Zone Completion</Text>
-            </View>
-            <Text style={styles.sectionMeta}>{ui.zones.length} Zones Active</Text>
-          </View>
-
-          <View style={styles.zoneList}>
-            {ui.zones.map((zone) => (
-              <View key={zone.key} style={styles.zoneBlock}>
-                <View style={styles.zoneHeadline}>
-                  <Text style={styles.zoneName}>{zone.name}</Text>
-                  <Text style={[styles.zoneValue, toneValueStyle(zone.tone)]}>{zone.value}%</Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[styles.progressFill, { width: `${zone.value}%` }, toneFillStyle(zone.tone)]}
-                  />
-                </View>
-                <Text style={styles.zoneHint}>{zone.checked.replace("of", "/").replace("completed", "checked")}</Text>
+        {ui.zones.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="location-outline" size={14} color="#4F7CFF" />
+                <Text style={styles.sectionTitle}>Zone Completion</Text>
               </View>
-            ))}
-          </View>
-        </View>
+              <Text style={styles.sectionMeta}>{ui.zones.length} Zones Active</Text>
+            </View>
 
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Feather name="settings" size={14} color="#7B8AA4" />
-              <Text style={styles.sectionTitle}>Function Health</Text>
+            <View style={styles.zoneList}>
+              {ui.zones.map((zone) => (
+                <View key={zone.key} style={styles.zoneBlock}>
+                  <View style={styles.zoneHeadline}>
+                    <Text style={styles.zoneName}>{zone.name}</Text>
+                    <Text style={[styles.zoneValue, toneValueStyle(zone.tone)]}>{zone.value}%</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[styles.progressFill, { width: `${zone.value}%` }, toneFillStyle(zone.tone)]}
+                    />
+                  </View>
+                  <Text style={styles.zoneHint}>{zone.checked.replace("of", "/").replace("completed", "checked")}</Text>
+                </View>
+              ))}
             </View>
           </View>
+        ) : (
+          <EmptyCard
+            title="Zone Completion"
+            text="This shift report did not return any zone completion data."
+          />
+        )}
 
-          <View style={styles.healthGrid}>
-            {ui.functions.map((item, index) => (
-              <View
-                key={item.key}
-                style={[
-                  styles.healthCard,
-                  index % 2 === 0 ? styles.healthCardLeft : styles.healthCardRight,
-                  index < FUNCTIONS.length - 2 && styles.healthCardBottom,
-                ]}
-              >
-                <View style={styles.healthTitleRow}>
-                  <Feather name={item.icon} size={15} color="#8A96AA" />
-                  <Text style={styles.healthTitle}>{item.name}</Text>
-                </View>
-                <Text style={styles.healthValue}>{item.value}%</Text>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[styles.progressFill, { width: `${item.value}%` }, toneFillStyle(item.tone)]}
-                  />
-                </View>
+        {ui.functions.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Feather name="settings" size={14} color="#7B8AA4" />
+                <Text style={styles.sectionTitle}>Function Health</Text>
               </View>
-            ))}
-          </View>
-        </View>
+            </View>
 
+            <View style={styles.healthGrid}>
+              {ui.functions.map((item, index) => (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.healthCard,
+                    index % 2 === 0 ? styles.healthCardLeft : styles.healthCardRight,
+                    index < ui.functions.length - 2 && styles.healthCardBottom,
+                  ]}
+                >
+                  <View style={styles.healthTitleRow}>
+                    <Feather name={item.icon} size={15} color="#8A96AA" />
+                    <Text style={styles.healthTitle}>{item.name}</Text>
+                  </View>
+                  <Text style={styles.healthValue}>{item.value}%</Text>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[styles.progressFill, { width: `${item.value}%` }, toneFillStyle(item.tone)]}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <EmptyCard
+            title="Function Health"
+            text="This shift report did not return any function health data."
+          />
+        )}
+
+        {ui.employees.length > 0 ? (
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
@@ -641,10 +528,17 @@ export function SupervisorReportsScreen() {
                   <Text style={styles.makerTasks}>{maker.tasks} TASKS</Text>
                 </View>
               </View>
-            ))}
+              ))}
           </View>
         </View>
+        ) : (
+          <EmptyCard
+            title="Maker Performance"
+            text="No employee performance records were returned for this shift."
+          />
+        )}
 
+        {ui.escalations.length > 0 ? (
         <View style={[styles.card, styles.escalationCard]}>
           <View style={[styles.sectionHeader, styles.escalationHeader]}>
             <View style={styles.sectionTitleRow}>
@@ -656,7 +550,7 @@ export function SupervisorReportsScreen() {
           <View style={styles.escalationList}>
             {ui.escalations.map((item, index) => (
               <View
-                key={item.title}
+                key={`${item.title}-${item.time}-${index}`}
                 style={[
                   styles.escalationRow,
                   index !== ui.escalations.length - 1 && styles.escalationBorder,
@@ -674,11 +568,19 @@ export function SupervisorReportsScreen() {
             ))}
           </View>
         </View>
+        ) : null}
       </View>
     );
   }
 
   function renderZoneTab() {
+    if (ui.zones.length === 0) {
+      return (
+        <View style={styles.stack}>
+          <EmptyCard title="Zone Completion" text="No zone data is available for this shift." />
+        </View>
+      );
+    }
     return (
       <View style={styles.stack}>
         {ui.zones.map((zone) => {
@@ -750,6 +652,13 @@ export function SupervisorReportsScreen() {
   }
 
   function renderFunctionTab() {
+    if (ui.functions.length === 0) {
+      return (
+        <View style={styles.stack}>
+          <EmptyCard title="Function Health" text="No function data is available for this shift." />
+        </View>
+      );
+    }
     return (
       <View style={styles.stack}>
         {ui.functions.map((item) => {
@@ -824,6 +733,13 @@ export function SupervisorReportsScreen() {
   }
 
   function renderEmployeeTab() {
+    if (ui.employees.length === 0) {
+      return (
+        <View style={styles.stack}>
+          <EmptyCard title="Maker Performance" text="No employee records are available for this shift." />
+        </View>
+      );
+    }
     return (
       <View style={styles.stack}>
         {ui.employees.map((employee) => {
@@ -1041,6 +957,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 4,
   },
   heroTab: {
     flex: 1,
@@ -1060,6 +977,7 @@ const styles = StyleSheet.create({
     fontFamily: font.family.bold,
     fontSize: 10,
     letterSpacing: 1.2,
+    flexShrink: 1,
   },
   heroTabTextActive: {
     color: "#F9A11A",
@@ -1090,6 +1008,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     padding: 18,
     gap: 14,
   },
@@ -1099,26 +1018,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ringSegment: {
-    position: "absolute",
-    width: 122,
-    height: 122,
-    alignItems: "center",
-    justifyContent: "flex-start",
-  },
-  ringArc: {
-    width: 20,
-    height: 40,
-    borderRadius: 10,
-    marginTop: 6,
-  },
-  ringArcActive: {
-    backgroundColor: "#FFA113",
-  },
-  ringArcMuted: {
-    backgroundColor: "#E9EEF6",
-  },
   ringCenter: {
+    position: "absolute",
     width: 78,
     height: 78,
     borderRadius: 39,
@@ -1142,6 +1043,7 @@ const styles = StyleSheet.create({
   },
   summaryLegend: {
     flex: 1,
+    minWidth: 180,
     gap: 14,
   },
   summaryRow: {
@@ -1180,8 +1082,9 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 14,
@@ -1204,6 +1107,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    flexShrink: 1,
   },
   zoneList: {
     padding: 18,
@@ -1214,13 +1118,15 @@ const styles = StyleSheet.create({
   },
   zoneHeadline: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 10,
   },
   zoneName: {
     color: "#1F2A3D",
     fontFamily: font.family.black,
     fontSize: 15,
+    flex: 1,
   },
   zoneValue: {
     fontFamily: font.family.bold,
@@ -1271,6 +1177,7 @@ const styles = StyleSheet.create({
   },
   healthCard: {
     width: "50%",
+    minWidth: 140,
     padding: 18,
     gap: 12,
   },
@@ -1292,6 +1199,7 @@ const styles = StyleSheet.create({
     color: "#1F2A3D",
     fontFamily: font.family.bold,
     fontSize: 14,
+    flexShrink: 1,
   },
   healthValue: {
     color: "#1F2A3D",
@@ -1304,7 +1212,7 @@ const styles = StyleSheet.create({
   },
   makerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     paddingVertical: 14,
   },
@@ -1333,12 +1241,14 @@ const styles = StyleSheet.create({
   },
   makerBody: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   makerName: {
     color: "#1F2A3D",
     fontFamily: font.family.black,
     fontSize: 15,
+    flexShrink: 1,
   },
   makerTeam: {
     color: "#8F9BB0",
@@ -1472,6 +1382,7 @@ const styles = StyleSheet.create({
   },
   taskRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
     paddingRight: 16,
     paddingVertical: 14,
@@ -1488,6 +1399,7 @@ const styles = StyleSheet.create({
     color: "#1F2A3D",
     fontFamily: font.family.black,
     fontSize: 14,
+    flexShrink: 1,
   },
   taskHint: {
     color: "#A1ACC0",
@@ -1530,16 +1442,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
   functionName: {
     color: "#1F2A3D",
     fontFamily: font.family.black,
     fontSize: 15,
+    flexShrink: 1,
   },
   functionRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   badge: {
     minWidth: 44,
@@ -1732,8 +1648,9 @@ const styles = StyleSheet.create({
   },
   shiftLogHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 10,
   },
   shiftLogTitle: {
@@ -1781,5 +1698,20 @@ const styles = StyleSheet.create({
     color: "#2F6BFF",
     fontFamily: font.family.bold,
     fontSize: 13,
+  },
+  emptyCard: {
+    padding: 20,
+    gap: 8,
+  },
+  emptyCardTitle: {
+    color: "#1F2A3D",
+    fontFamily: font.family.black,
+    fontSize: 16,
+  },
+  emptyCardText: {
+    color: "#8D99AF",
+    fontFamily: font.family.medium,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });
