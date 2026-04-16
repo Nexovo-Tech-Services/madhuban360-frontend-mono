@@ -59,6 +59,10 @@ export interface DailyStaffTaskRecord {
   staffId: number;
   taskDate: string;
   status: string;
+  beforePhotoUrl?: string | null;
+  afterPhotoUrl?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   staff?: StaffMasterTaskRecord["staff"];
@@ -168,6 +172,10 @@ function mapDailyStaffTask(raw: Record<string, unknown>): DailyStaffTaskRecord {
     staffId: Number(raw.staffId ?? 0),
     taskDate: String(raw.taskDate ?? ""),
     status: String(raw.status ?? ""),
+    beforePhotoUrl: raw.beforePhotoUrl == null ? null : String(raw.beforePhotoUrl),
+    afterPhotoUrl: raw.afterPhotoUrl == null ? null : String(raw.afterPhotoUrl),
+    startedAt: raw.startedAt == null ? null : String(raw.startedAt),
+    completedAt: raw.completedAt == null ? null : String(raw.completedAt),
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
     staff:

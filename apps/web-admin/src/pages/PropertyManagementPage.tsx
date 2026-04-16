@@ -51,7 +51,6 @@ type ReportTab = "overview" | "financial" | "operational" | "sustainability";
 
 interface Property {
   id: number; name: string; address: string; type: PropertyType;
-  totalUnits: number; unitsSold: number; unitsUnsold: number;
   amcStatus: AMCStatus;
   gradFrom: string; gradTo: string;
 }
@@ -65,16 +64,16 @@ interface Asset {
   condition: AssetCondition; lastMaint: string; nextService: string; overdue?: boolean;
 }
 
-type PropertySummary = { total: number; activeAmc: number; expiringAmc: number; occupancyPercent: number };
+type PropertySummary = { total: number; activeAmc: number; expiringAmc: number };
 type AssetSummary = { total: number; needsAttention: number; upcomingService: number; uptimeRate: number };
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const PROPERTIES: Property[] = [
-  { id:1, name:"Grand Plaza Office Tower",  address:"Downtown Financial District, NY",   type:"Commercial",  totalUnits:245, unitsSold:240, unitsUnsold:5,  amcStatus:"Active",       gradFrom:"#1e3a5f", gradTo:"#2563eb" },
-  { id:2, name:"Blue Water Residences",     address:"Bayfront Avenue, Miami",            type:"Residential", totalUnits:245, unitsSold:240, unitsUnsold:5,  amcStatus:"Active",       gradFrom:"#14532d", gradTo:"#16a34a" },
-  { id:3, name:"Metro Logistics Hub",       address:"CargaPort Drive, Chicago",          type:"Industrial",  totalUnits:245, unitsSold:240, unitsUnsold:5,  amcStatus:"Expiring Soon",gradFrom:"#7c2d12", gradTo:"#ea580c" },
-  { id:4, name:"The Innovation Center",     address:"Tech Park, San Jose",               type:"Commercial",  totalUnits:245, unitsSold:249, unitsUnsold:6,  amcStatus:"Expiring Soon",gradFrom:"#312e81", gradTo:"#7c3aed" },
-  { id:5, name:"Green Meadows Villas",      address:"Suburban Hills, Austin",            type:"Residential", totalUnits:245, unitsSold:240, unitsUnsold:5,  amcStatus:"Active",       gradFrom:"#064e3b", gradTo:"#059669" },
+  { id:1, name:"Grand Plaza Office Tower",  address:"Downtown Financial District, NY",   type:"Commercial",  amcStatus:"Active",       gradFrom:"#1e3a5f", gradTo:"#2563eb" },
+  { id:2, name:"Blue Water Residences",     address:"Bayfront Avenue, Miami",            type:"Residential", amcStatus:"Active",       gradFrom:"#14532d", gradTo:"#16a34a" },
+  { id:3, name:"Metro Logistics Hub",       address:"CargaPort Drive, Chicago",          type:"Industrial",  amcStatus:"Expiring Soon",gradFrom:"#7c2d12", gradTo:"#ea580c" },
+  { id:4, name:"The Innovation Center",     address:"Tech Park, San Jose",               type:"Commercial",  amcStatus:"Expiring Soon",gradFrom:"#312e81", gradTo:"#7c3aed" },
+  { id:5, name:"Green Meadows Villas",      address:"Suburban Hills, Austin",            type:"Residential", amcStatus:"Active",       gradFrom:"#064e3b", gradTo:"#059669" },
 ];
 
 const WORK_ORDERS: WorkOrder[] = [
@@ -186,8 +185,8 @@ function woAction(s: WOStatus) {
 }
 
 // ─── Add Property Modal ───────────────────────────────────────────────────────
-interface AddPropForm { name: string; propId: string; type: PropertyType | ""; address: string; city: string; state: string; zip: string; units: string; unitsSold: string; unitsUnsold: string; contact: string; }
-const EMPTY_PROP: AddPropForm = { name:"", propId:"", type:"", address:"", city:"", state:"", zip:"", units:"", unitsSold:"", unitsUnsold:"", contact:"" };
+interface AddPropForm { name: string; propId: string; type: PropertyType | ""; address: string; city: string; state: string; zip: string; contact: string; }
+const EMPTY_PROP: AddPropForm = { name:"", propId:"", type:"", address:"", city:"", state:"", zip:"", contact:"" };
 
 function AddPropertyModal({
   onClose,
@@ -267,11 +266,6 @@ function AddPropertyModal({
 
           {/* Operational Details */}
           <Section icon={<Wrench size={14}/>} label="Operational Details">
-            <div style={ap.row3}>
-              <Field label="Total Units / Area (sq ft)"><input style={ap.input} placeholder="e.g. 120" value={form.units} onChange={e=>set("units",e.target.value)}/></Field>
-              <Field label="Units Sold"><input style={ap.input} placeholder="e.g. 120" value={form.unitsSold} onChange={e=>set("unitsSold",e.target.value)}/></Field>
-              <Field label="Units Unsold"><input style={ap.input} placeholder="e.g. 120" value={form.unitsUnsold} onChange={e=>set("unitsUnsold",e.target.value)}/></Field>
-            </div>
             <Field label="Primary Contact Person" error={errors.contact}><input style={{ ...ap.input, ...(errors.contact ? validationStyles.inputErrorBorder : null) }} placeholder="Manager name / Contact Number" value={form.contact} onChange={e=>set("contact",e.target.value)}/></Field>
           </Section>
         </div>
@@ -351,14 +345,6 @@ function PropertyCard({ p }: { p: Property }) {
       <div style={{ padding:"12px 14px 14px" }}>
         <div style={{ fontSize:14, fontWeight:700, color:"var(--c-text)", marginBottom:3 }}>{p.name}</div>
         <div style={{ fontSize:12, color:"var(--c-text-faint)", marginBottom:10, display:"flex", alignItems:"center", gap:4 }}><MapPin size={11}/> {p.address}</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
-          {[["TOTAL UNITS", p.totalUnits], ["UNITS SOLD", p.unitsSold], ["UNITS UNSOLD", p.unitsUnsold]].map(([k,v])=>(
-            <div key={String(k)}>
-              <div style={{ fontSize:9.5, fontWeight:700, color:"var(--c-text-faint)", letterSpacing:"0.5px", textTransform:"uppercase" as const }}>{k}</div>
-              <div style={{ fontSize:14, fontWeight:800, color:"var(--c-text)" }}>{v}</div>
-            </div>
-          ))}
-        </div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div>
             <div style={{ fontSize:10, fontWeight:700, color:"var(--c-text-faint)", textTransform:"uppercase" as const, letterSpacing:"0.5px", marginBottom:3 }}>AMC STATUS</div>
@@ -388,11 +374,10 @@ function PropertyListTab({
   return (
     <div>
       {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:20 }}>
         <StatMini label="TOTAL PROPERTIES" value={summary?.total ?? "—"} trend="+3 from last month" trendUp />
         <StatMini label="ACTIVE AMC" value={summary?.activeAmc ?? "—"} trend="60.5% COVERED" trendUp />
         <StatMini label="EXPIRING AMC" value={summary?.expiringAmc ?? "—"} trend="Renewals due in 30 days" trendUp={false} />
-        <StatMini label="OCCUPANCY" value={summary?.occupancyPercent != null ? `${summary.occupancyPercent}%` : "—"} />
       </div>
 
       {/* Filters */}
@@ -753,9 +738,6 @@ export function PropertyManagementPage() {
       name: String(p.propertyName ?? p.name ?? "—"),
       address: String(p.location ?? [p.city, p.stateProvince].filter(Boolean).join(", ") ?? "—"),
       type: mapType,
-      totalUnits: Number(p.totalUnits ?? 245) || 0,
-      unitsSold: Number(p.unitsSold ?? 0) || 0,
-      unitsUnsold: Number(p.unitsUnsold ?? 0) || 0,
       amcStatus: mapAmc,
       gradFrom: "#1e3a5f",
       gradTo: "#2563eb",
@@ -858,14 +840,6 @@ export function PropertyManagementPage() {
           total: d.length,
           activeAmc: d.length,
           expiringAmc: 0,
-          occupancyPercent:
-            d.length > 0
-              ? Math.round(
-                  (d.filter((item) => Number(item.floorCount ?? 0) > 0).length /
-                    d.length) *
-                    100,
-                )
-              : 0,
         });
       }
 

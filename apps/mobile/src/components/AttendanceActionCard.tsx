@@ -1,6 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { getStaffAttendance, getSupervisorAttendance, getTodayAttendance } from "@madhuban/api";
+import {
+  getManagerAttendance,
+  getStaffAttendance,
+  getSupervisorAttendance,
+  getTodayAttendance,
+} from "@madhuban/api";
 import { colors, font, radii, space } from "@madhuban/theme";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -36,6 +41,7 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
     "NOT_CHECKED_IN",
   );
   const normalizedRole = String(role ?? "").trim().toLowerCase();
+  const isManager = normalizedRole === "manager";
   const isSupervisor = normalizedRole === "supervisor";
   const isStaff = normalizedRole === "staff";
 
@@ -45,7 +51,10 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
       (async () => {
         try {
           let nextPhase: "NOT_CHECKED_IN" | "ACTIVE" | "COMPLETED" = "NOT_CHECKED_IN";
-          if (isSupervisor) {
+          if (isManager) {
+            const data = await getManagerAttendance();
+            nextPhase = data.phase;
+          } else if (isSupervisor) {
             const data = await getSupervisorAttendance();
             nextPhase = data.phase;
           } else if (isStaff) {
@@ -68,7 +77,7 @@ export function AttendanceActionCard({ role }: { role: string | undefined }) {
       return () => {
         alive = false;
       };
-    }, [isStaff, isSupervisor]),
+    }, [isManager, isStaff, isSupervisor]),
   );
 
   const checkedIn = attendancePhase === "ACTIVE";

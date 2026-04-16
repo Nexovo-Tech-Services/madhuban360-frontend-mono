@@ -2,6 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import {
   checkIn,
   checkOut,
+  submitManagerAttendance,
   submitStaffAttendance,
   submitSupervisorAttendance,
 } from "@madhuban/api";
@@ -128,6 +129,7 @@ function InfoTile({
 export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
   const insets = useSafeAreaInsets();
   const { role } = useAuth();
+  const isManager = String(role ?? "").trim().toLowerCase() === "manager";
   const isSupervisor = String(role ?? "").trim().toLowerCase() === "supervisor";
   const isStaff = String(role ?? "").trim().toLowerCase() === "staff";
   const copy = useMemo(() => getScreenCopy(mode), [mode]);
@@ -245,7 +247,24 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
     try {
       const nextCoords = coords ?? (await ensureLocation());
       const responseSnapshotBase: AttendanceSnapshot = {};
-      if (isSupervisor) {
+      if (isManager) {
+        const response = await submitManagerAttendance({
+          action: mode === "check-in" ? "check_in" : "check_out",
+          latitude: String(nextCoords.latitude),
+          longitude: String(nextCoords.longitude),
+          selfie:
+            mode === "check-in" && selfie
+              ? {
+                  uri: selfie.uri,
+                  type: "image/jpeg",
+                  name: `attendance-selfie-${Date.now()}.jpg`,
+                }
+              : undefined,
+        });
+        responseSnapshotBase.workDate = response.workDate;
+        responseSnapshotBase.checkInAt = response.checkInAt;
+        responseSnapshotBase.checkOutAt = response.checkOutAt;
+      } else if (isSupervisor) {
         const response = await submitSupervisorAttendance({
           action: mode === "check-in" ? "check_in" : "check_out",
           latitude: String(nextCoords.latitude),

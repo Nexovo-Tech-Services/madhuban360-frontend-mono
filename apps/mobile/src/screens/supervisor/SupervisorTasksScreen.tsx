@@ -1,9 +1,14 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
+  getDailyStaffTasks,
+  getManagerSupervisors,
   getManagerTasks,
+  submitManagerReviewDecision,
   getSupervisorReviewDetail,
   getSupervisorReviews,
   submitSupervisorReviewDecision,
+  type DailyStaffTaskRecord,
+  type ManagerSupervisorRecord,
   type ManagerTasksResponse,
   type SupervisorReviewDetailResponse,
   type SupervisorReviewsResponse,
@@ -190,6 +195,13 @@ function formatTime(value: string | null | undefined) {
   });
 }
 
+function formatManagerTaskDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function normalizeImageUri(value: string | null | undefined) {
   if (!value) return null;
   const trimmed = value.trim();
@@ -307,8 +319,20 @@ function mapManagerStatus(value: string): ReviewTask["status"] {
   const normalized = value.trim().toUpperCase();
   if (normalized === "COMPLETED" || normalized === "APPROVED") return "Approved";
   if (normalized === "REJECTED" || normalized === "SENT_BACK") return "Sent Back";
-  if (normalized === "IN_PROGRESS" || normalized === "PENDING_REVIEW") return "Needs Review";
+  if (normalized === "IN_REVIEW" || normalized === "IN_PROGRESS" || normalized === "PENDING_REVIEW") {
+    return "Needs Review";
+  }
+  if (normalized === "PENDING") return "Pending";
   return "Pending";
+}
+
+function toManagerApiStatus(
+  value: (typeof STATUS_FILTERS)[number],
+): "in_review" | "approved" | "rejected" | undefined {
+  if (value === "Needs Review") return "in_review";
+  if (value === "Sent Back") return "rejected";
+  if (value === "Approved") return "approved";
+  return undefined;
 }
 
 function mapManagerTasksData(data: ManagerTasksResponse | null): ReviewTask[] {
@@ -424,6 +448,44 @@ function mapManagerTasksData(data: ManagerTasksResponse | null): ReviewTask[] {
       issueTime: formatTime(issueAt) ?? "--",
       beforePhotoUrl: beforePhotoUrl || null,
       afterPhotoUrl: afterPhotoUrl || null,
+    };
+  });
+}
+
+function mergeManagerDailyTaskData(
+  tasks: ReviewTask[],
+  dailyTasks: DailyStaffTaskRecord[],
+): ReviewTask[] {
+  const detailMap = new Map(dailyTasks.map((item) => [String(item.id), item]));
+  return tasks.map((task) => {
+    const detail = detailMap.get(String(task.dailyTaskId ?? task.id));
+    if (!detail) return task;
+    const masterTask = detail.staffMasterTask?.masterTask;
+    const staffName = detail.staff?.name?.trim();
+    const derivedInitials = staffName
+      ? staffName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase()
+      : "";
+    return {
+      ...task,
+      dailyTaskId: detail.id,
+      title: masterTask?.title || task.title,
+      slot:
+        masterTask?.startTime || masterTask?.endTime
+          ? `${masterTask?.startTime ?? "--"} - ${masterTask?.endTime ?? "--"}`
+          : task.slot,
+      beforeTime: formatTime(detail.startedAt) ?? task.beforeTime,
+      afterTime: formatTime(detail.completedAt) ?? task.afterTime,
+      issueTime: formatTime(detail.updatedAt) ?? task.issueTime,
+      beforePhotoUrl: normalizeImageUri(detail.beforePhotoUrl) ?? task.beforePhotoUrl,
+      afterPhotoUrl: normalizeImageUri(detail.afterPhotoUrl) ?? task.afterPhotoUrl,
+      assigneeName: staffName || task.assigneeName,
+      assigneeInitials: derivedInitials || task.assigneeInitials,
     };
   });
 }
@@ -731,6 +793,9 @@ export function SupervisorTasksScreen() {
   const [selectedStatusFilter, setSelectedStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>("All");
   const [search, setSearch] = useState("");
+  const [managerSupervisors, setManagerSupervisors] = useState<ManagerSupervisorRecord[]>([]);
+  const [selectedManagerSupervisorId, setSelectedManagerSupervisorId] = useState<number | null>(null);
+  const [selectedManagerTaskDate] = useState(() => formatManagerTaskDate());
   const [reviewData, setReviewData] = useState<SupervisorReviewsResponse | null>(null);
   const [managerTaskData, setManagerTaskData] = useState<ManagerTasksResponse | null>(null);
   const [tasksState, setTasksState] = useState<ReviewTask[]>([...REVIEW_TASKS]);
@@ -766,22 +831,26 @@ export function SupervisorTasksScreen() {
       return;
     }
 
-    const filter =
-      selectedStatusFilter === "Needs Review"
-        ? "critical"
-        : selectedStatusFilter === "Sent Back"
-          ? "high"
-          : selectedStatusFilter === "Approved"
-            ? "done"
-            : "all";
+    if (!selectedManagerSupervisorId) {
+      setManagerTaskData(null);
+      setReviewData(null);
+      setTasksState([]);
+      return;
+    }
+
     const data = await getManagerTasks({
-      filter,
+      supervisorId: selectedManagerSupervisorId,
+      date: selectedManagerTaskDate,
+      filter: "all",
+      status: toManagerApiStatus(selectedStatusFilter),
+      page: 1,
       limit: 20,
     });
+    const dailyTasks = await getDailyStaffTasks({ date: data.date });
     setManagerTaskData(data);
     setReviewData(null);
-    setTasksState(mapManagerTasksData(data));
-  }, [isSupervisor, search, selectedStatusFilter, supportsTaskFeed]);
+    setTasksState(mergeManagerDailyTaskData(mapManagerTasksData(data), dailyTasks));
+  }, [isSupervisor, search, selectedManagerSupervisorId, selectedManagerTaskDate, selectedStatusFilter, supportsTaskFeed]);
 
   useEffect(() => {
     let active = true;
@@ -806,14 +875,56 @@ export function SupervisorTasksScreen() {
     };
   }, [loadReviews, supportsTaskFeed]);
 
+  useEffect(() => {
+    let active = true;
+    if (!isManager) {
+      setManagerSupervisors([]);
+      setSelectedManagerSupervisorId(null);
+      return;
+    }
+
+    getManagerSupervisors()
+      .then((items) => {
+        if (!active) return;
+        setManagerSupervisors(items);
+        if (items.length === 0) {
+          setSelectedManagerSupervisorId(null);
+          return;
+        }
+        if (!items.some((item) => item.id === selectedManagerSupervisorId)) {
+          setSelectedManagerSupervisorId(items[0].id);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setManagerSupervisors([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isManager, selectedManagerSupervisorId]);
+
   const tasks = useMemo(
-    () =>
-      isSupervisor
-        ? tasksState
-        : tasksState.filter((task) =>
-            selectedStatusFilter === "All" ? true : task.status === selectedStatusFilter,
-          ),
-    [isSupervisor, selectedStatusFilter, tasksState],
+    () => {
+      const query = search.trim().toLowerCase();
+      if (!query) return tasksState;
+      return tasksState.filter((task) =>
+        [
+          task.title,
+          task.assigneeName,
+          task.area,
+          task.location,
+          task.floor,
+          task.status,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query),
+      );
+    },
+    [search, tasksState],
   );
 
   const selectedTask = useMemo(() => {
@@ -870,24 +981,42 @@ export function SupervisorTasksScreen() {
   }
 
   async function confirmReview() {
-    if (!selectedTask || !decision || !isSupervisor) return;
+    if (!selectedTask || !decision || (!isSupervisor && !isManager)) return;
 
     setSubmitting(true);
     try {
       if (selectedTask.dailyTaskId) {
-        await submitSupervisorReviewDecision(selectedTask.dailyTaskId, {
-          action: decision === "approve" ? "approve" : "send_back",
-          comment: comment.trim() || undefined,
-        });
+        if (isSupervisor) {
+          await submitSupervisorReviewDecision(selectedTask.dailyTaskId, {
+            action: decision === "approve" ? "approve" : "send_back",
+            comment: comment.trim() || undefined,
+          });
+        } else {
+          await submitManagerReviewDecision(selectedTask.dailyTaskId, {
+            action: decision === "approve" ? "approve" : "reject",
+            comment:
+              comment.trim() ||
+              (decision === "approve"
+                ? "Approved by manager."
+                : "Please re-check and re-upload after photo."),
+          });
+        }
       }
 
-    const updatedTask = getUpdatedTask(selectedTask, decision);
-    setTasksState((current) =>
-      current.map((task) => (task.id === selectedTask.id ? updatedTask : task)),
-    );
+      const updatedTask = getUpdatedTask(selectedTask, decision);
+      setTasksState((current) =>
+        current.map((task) => (task.id === selectedTask.id ? updatedTask : task)),
+      );
       setToastMessage(decision === "approve" ? "Task Approved!" : "Task Sent Back!");
       closeTaskModal();
       await loadReviews().catch(() => {});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("review not found")) {
+        setToastMessage("This review is no longer available. Refresh the task list and try again.");
+        return;
+      }
+      setToastMessage(message || "Unable to submit the review right now.");
     } finally {
       setSubmitting(false);
     }
@@ -935,20 +1064,39 @@ export function SupervisorTasksScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.topFiltersRow}>
-            {TOP_FILTERS.map((filter) => {
-              const active = filter === selectedTopFilter;
-              return (
-                <Pressable
-                  key={filter}
-                  onPress={() => setSelectedTopFilter(filter)}
-                  style={[styles.topFilterChip, active && styles.topFilterChipActive]}
-                >
-                  <Text style={[styles.topFilterText, active && styles.topFilterTextActive]}>
-                    {filter}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {isManager ? (
+              <>
+                {managerSupervisors.map((supervisor) => {
+                  const active = selectedManagerSupervisorId === supervisor.id;
+                  return (
+                    <Pressable
+                      key={supervisor.id}
+                      onPress={() => setSelectedManagerSupervisorId(supervisor.id)}
+                      style={[styles.topFilterChip, active && styles.topFilterChipActive]}
+                    >
+                      <Text style={[styles.topFilterText, active && styles.topFilterTextActive]}>
+                        {supervisor.name.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </>
+            ) : (
+              TOP_FILTERS.map((filter) => {
+                const active = filter === selectedTopFilter;
+                return (
+                  <Pressable
+                    key={filter}
+                    onPress={() => setSelectedTopFilter(filter)}
+                    style={[styles.topFilterChip, active && styles.topFilterChipActive]}
+                  >
+                    <Text style={[styles.topFilterText, active && styles.topFilterTextActive]}>
+                      {filter}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
           </View>
         </ScrollView>
       </View>
@@ -1114,7 +1262,7 @@ export function SupervisorTasksScreen() {
       <ReviewTaskModal
         task={selectedTask}
         loading={modalLoading || submitting}
-        actionsEnabled={isSupervisor}
+        actionsEnabled={isSupervisor || isManager}
         decision={decision}
         comment={comment}
         selectedReasons={selectedReasons}

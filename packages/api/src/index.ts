@@ -32,8 +32,11 @@ export {
   type StaffMasterTaskRecord,
   runDailyTasksCron,
   getDailyStaffTasks,
+  type DailyStaffTaskRecord,
 } from "./tasks";
 export {
+  getAdminDashboard,
+  type AdminDashboardResponse,
   getDashboardMetrics,
   getSalesPipeline,
   getRevenue,
@@ -127,14 +130,23 @@ export {
 } from "./supervisor";
 export {
   getManagerDashboard,
+  getManagerAttendance,
+  submitManagerAttendance,
   getManagerProfile,
   getManagerTasks,
+  getManagerSupervisors,
   getManagerShiftReport,
   getManagerEmployeeShiftReport,
+  submitManagerReviewDecision,
   type ManagerDashboardResponse,
+  type ManagerAttendanceResponse,
+  type ManagerAttendanceSubmitPayload,
   type ManagerProfileResponse,
   type ManagerTasksResponse,
+  type ManagerSupervisorRecord,
   type ManagerTaskFilters,
   type ManagerShiftReportResponse,
   type ManagerEmployeeShiftReportResponse,
+  type ManagerReviewDecisionPayload,
+  type ManagerReviewDecisionResponse,
 } from "./manager";

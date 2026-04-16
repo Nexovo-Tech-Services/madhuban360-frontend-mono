@@ -196,25 +196,37 @@ async function appendUploadableFile(
     "uri" in file &&
     typeof file.uri === "string"
   ) {
-    const normalizedUri =
-      file.uri.startsWith("file://") || file.uri.startsWith("content://")
-        ? file.uri
-        : `file://${file.uri}`;
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onerror = () => reject(new Error(`Unable to read ${fieldName} file.`));
-      xhr.onload = () => resolve(xhr.response as Blob);
-      xhr.responseType = "blob";
-      xhr.open("GET", normalizedUri, true);
-      xhr.send();
-    });
-    const typedBlob =
-      blob.type || !file.type ? blob : blob.slice(0, blob.size, file.type || "image/jpeg");
+    const isReactNativeRuntime =
+      typeof navigator !== "undefined" && navigator.product === "ReactNative";
+    const hasUriScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(file.uri);
+    const normalizedUri = hasUriScheme ? file.uri : `file://${file.uri}`;
+    if (!isReactNativeRuntime) {
+      const response = await fetch(normalizedUri);
+      if (!response.ok) {
+        throw new Error(`Unable to read ${fieldName} file.`);
+      }
+      const blob = await response.blob();
+      const typedBlob =
+        blob.type || !file.type ? blob : blob.slice(0, blob.size, file.type || "image/jpeg");
+      (
+        formData as unknown as {
+          append(name: string, value: Blob, fileName?: string): void;
+        }
+      ).append(fieldName, typedBlob, file.name || `${fieldName}-${Date.now()}.jpg`);
+      return;
+    }
     (
       formData as unknown as {
-        append(name: string, value: Blob, fileName?: string): void;
+        append(
+          name: string,
+          value: { uri: string; type: string; name: string },
+        ): void;
       }
-    ).append(fieldName, typedBlob, file.name || `${fieldName}-${Date.now()}.jpg`);
+    ).append(fieldName, {
+      uri: normalizedUri,
+      type: file.type || "image/jpeg",
+      name: file.name || `${fieldName}-${Date.now()}.jpg`,
+    });
     return;
   }
 

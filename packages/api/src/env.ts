@@ -14,6 +14,7 @@ function readEnv(): Record<string, string | undefined> {
 }
 
 export function getApiBaseUrl(): string {
+  if (configuredBase !== null) return configuredBase;
   const env = readEnv();
   const fromEnv =
     env.EXPO_PUBLIC_API_BASE_URL ??
@@ -21,7 +22,6 @@ export function getApiBaseUrl(): string {
     env.VITE_API_BASE_URL ??
     env.VITE_API_URL;
   if (fromEnv !== undefined) return fromEnv.replace(/\/+$/, "");
-  if (configuredBase !== null) return configuredBase;
   return "";
 }
 

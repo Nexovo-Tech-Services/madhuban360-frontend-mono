@@ -7,6 +7,7 @@ import {
 } from "@madhuban/api";
 import { colors, font, radii } from "@madhuban/theme";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -46,6 +47,13 @@ interface TaskItem {
   afterPhotoUrl?: string | null;
   isCompleted: boolean;
 }
+
+type TaskActionState = {
+  label: string;
+  actionable: boolean;
+  tone: "default" | "progress" | "success" | "warning";
+  helperText?: string;
+};
 
 const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: "all", label: "All" },
@@ -148,6 +156,49 @@ function mapTask(item: StaffTasksResponse["tasks"][number]): TaskItem {
   };
 }
 
+function getTaskActionState(task: TaskItem): TaskActionState {
+  const taskStatus = String(task.status ?? "").trim().toUpperCase();
+  const approvalStatus = String(task.approvalStatus ?? "").trim().toUpperCase();
+  if (task.isCompleted || taskStatus === "COMPLETED" || approvalStatus === "APPROVED") {
+    return {
+      label: "Completed",
+      actionable: false,
+      tone: "success",
+      helperText: "This task has already been completed.",
+    };
+  }
+  if (approvalStatus === "REJECTED") {
+    return {
+      label: "Sent Back",
+      actionable: true,
+      tone: "warning",
+      helperText: task.decisionNote ?? "Retake and submit the required photos again.",
+    };
+  }
+  if (taskStatus === "IN_REVIEW" || approvalStatus === "IN_REVIEW" || approvalStatus === "PENDING" || !!task.afterPhotoUrl) {
+    return {
+      label: "In Review",
+      actionable: false,
+      tone: "progress",
+      helperText: "After photo submitted. Waiting for checker review.",
+    };
+  }
+  if (task.beforePhotoUrl && !task.afterPhotoUrl) {
+    return {
+      label: "After Photo Pending",
+      actionable: true,
+      tone: "default",
+      helperText: "Before photo submitted. Capture the after photo to finish this task.",
+    };
+  }
+  return {
+    label: "Pending",
+    actionable: true,
+    tone: "default",
+    helperText: "Capture before and after photos to complete this task.",
+  };
+}
+
 function ShiftProgressCard({
   counts,
   progress,
@@ -187,6 +238,7 @@ function TaskCard({
   onAction: (task: TaskItem) => void;
 }) {
   const cfg = getPriorityConfig(task.priority);
+  const actionState = getTaskActionState(task);
 
   return (
     <View style={[s.taskCard, { borderLeftColor: cfg.stripe }]}>
@@ -205,9 +257,35 @@ function TaskCard({
 
       <View style={s.taskCardMiddle}>
         <Text style={[s.taskTitle, task.isCompleted && s.taskTitleDone]}>{task.title}</Text>
-        <Pressable style={s.actionBtn} onPress={() => onAction(task)}>
-          <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-        </Pressable>
+        {actionState.actionable ? (
+          <Pressable style={s.actionBtn} onPress={() => onAction(task)}>
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </Pressable>
+        ) : (
+          <View
+            style={[
+              s.stateChip,
+              actionState.tone === "progress"
+                ? s.stateChipProgress
+                : actionState.tone === "success"
+                  ? s.stateChipSuccess
+                  : s.stateChipWarning,
+            ]}
+          >
+            <Text
+              style={[
+                s.stateChipText,
+                actionState.tone === "progress"
+                  ? s.stateChipTextProgress
+                  : actionState.tone === "success"
+                    ? s.stateChipTextSuccess
+                    : s.stateChipTextWarning,
+              ]}
+            >
+              {actionState.label}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={s.locationRow}>
@@ -274,6 +352,7 @@ function TaskDetailModal({
   onSubmitAfter,
   onClose,
   errorMessage,
+  actionState,
 }: {
   task: TaskItem | null;
   visible: boolean;
@@ -287,6 +366,7 @@ function TaskDetailModal({
   onSubmitAfter: () => void;
   onClose: () => void;
   errorMessage: string | null;
+  actionState: TaskActionState;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -340,8 +420,14 @@ function TaskDetailModal({
                     <View style={ms.sectionDot} />
                     <Text style={ms.sectionLabel}>STATUS</Text>
                   </View>
-                  <Text style={ms.sectionValue}>{task.isCompleted ? "Completed" : "Pending"}</Text>
+                  <Text style={ms.sectionValue}>{actionState.label}</Text>
                 </View>
+                {!actionState.actionable && actionState.helperText ? (
+                  <View style={ms.statusBanner}>
+                    <Ionicons name="time-outline" size={14} color="#2563EB" />
+                    <Text style={ms.statusBannerText}>{actionState.helperText}</Text>
+                  </View>
+                ) : null}
                 {task.decisionNote ? (
                   <View style={ms.section}>
                     <View style={ms.sectionLabelRow}>
@@ -385,7 +471,7 @@ function TaskDetailModal({
 
           {errorMessage ? <Text style={ms.errorText}>{errorMessage}</Text> : null}
 
-          {step === "detail" ? (
+          {step === "detail" && actionState.actionable ? (
             <Pressable style={ms.bottomBtn} onPress={onStartTask}>
               <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
               <Text style={ms.bottomBtnText}>Start Task</Text>
@@ -453,17 +539,22 @@ export function TasksScreen() {
     }
   }, [filter]);
 
-  useEffect(() => {
-    void load(filter);
-  }, [filter, load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load(filter);
+    }, [filter, load]),
+  );
 
   useEffect(() => {
+    const actionState = selectedTask ? getTaskActionState(selectedTask) : null;
     setStep(
-      selectedTask?.afterPhotoUrl
-        ? "after"
-        : selectedTask?.beforePhotoUrl
-          ? "after"
-          : "detail",
+      actionState && !actionState.actionable
+        ? "detail"
+        : selectedTask?.afterPhotoUrl
+          ? "detail"
+          : selectedTask?.beforePhotoUrl
+            ? "after"
+            : "detail",
     );
     setBeforeUri(selectedTask?.beforePhotoUrl ?? null);
     setAfterUri(selectedTask?.afterPhotoUrl ?? null);
@@ -473,7 +564,12 @@ export function TasksScreen() {
     setCapturingPhoto(false);
     setSubmitting(false);
     setUploadError(null);
-  }, [selectedTask?.id]);
+  }, [selectedTask?.afterPhotoUrl, selectedTask?.approvalStatus, selectedTask?.beforePhotoUrl, selectedTask?.id]);
+
+  const selectedTaskActionState = useMemo(
+    () => (selectedTask ? getTaskActionState(selectedTask) : null),
+    [selectedTask],
+  );
 
   async function handleBeforeUpload(task: TaskItem, photoUri: string) {
     const result = await uploadStaffTaskBeforePhoto(task.id, {
@@ -510,12 +606,18 @@ export function TasksScreen() {
       name: `after-${task.id}-${Date.now()}.jpg`,
     });
     const afterPhotoUrl = result.afterPhotoUrl ?? photoUri;
+    const approval =
+      result.approval && typeof result.approval === "object"
+        ? (result.approval as { status?: string; decisionNote?: string | null })
+        : undefined;
     setTasks((current) =>
       current.map((item) =>
         item.id === task.id
           ? {
               ...item,
               afterPhotoUrl,
+              approvalStatus: approval?.status ?? "IN_REVIEW",
+              decisionNote: approval?.decisionNote ?? item.decisionNote ?? "Awaiting checker review.",
             }
           : item,
       ),
@@ -525,6 +627,8 @@ export function TasksScreen() {
         ? {
             ...current,
             afterPhotoUrl,
+            approvalStatus: approval?.status ?? "IN_REVIEW",
+            decisionNote: approval?.decisionNote ?? current.decisionNote ?? "Awaiting checker review.",
           }
         : current,
     );
@@ -707,6 +811,17 @@ export function TasksScreen() {
         onSubmitAfter={() => void submitAfter()}
         onClose={() => setSelectedTask(null)}
         errorMessage={uploadError}
+        actionState={selectedTaskActionState ?? getTaskActionState({
+          id: "",
+          title: "",
+          location: "",
+          zone: "",
+          taskDate: "",
+          timeStart: "",
+          priority: "LOW",
+          status: "PENDING",
+          isCompleted: false,
+        })}
       />
     </>
   );
@@ -869,6 +984,40 @@ const s = StyleSheet.create({
   taskTitleDone: {
     color: "#94A3B8",
     textDecorationLine: "line-through",
+  },
+  stateChip: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  stateChipProgress: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#BFDBFE",
+  },
+  stateChipSuccess: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  stateChipWarning: {
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FED7AA",
+  },
+  stateChipText: {
+    fontFamily: font.family.bold,
+    fontSize: 11,
+    letterSpacing: 0.4,
+  },
+  stateChipTextProgress: {
+    color: "#2563EB",
+  },
+  stateChipTextSuccess: {
+    color: "#059669",
+  },
+  stateChipTextWarning: {
+    color: "#C2410C",
   },
   actionBtn: {
     width: 42,
@@ -1078,6 +1227,25 @@ const ms = StyleSheet.create({
     color: "#334155",
     fontFamily: font.family.bold,
     fontSize: 13,
+  },
+  statusBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 18,
+    borderRadius: 14,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  statusBannerText: {
+    flex: 1,
+    color: "#1E40AF",
+    fontFamily: font.family.medium,
+    fontSize: 12,
+    lineHeight: 18,
   },
   captureViewWrap: {
     paddingHorizontal: 16,

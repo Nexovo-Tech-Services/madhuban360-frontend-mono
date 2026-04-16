@@ -2,10 +2,71 @@ import { getApiBaseUrl } from "./env";
 import { getAuthHeaders, readJsonOrThrow, unwrapApiData } from "./client";
 
 const API_BASE = () => `${getApiBaseUrl()}/api/dashboard`;
+const API_ADMIN_DASHBOARD = () => `${getApiBaseUrl()}/api/admin/dashboard`;
+
+function withAdminDashboardQuery(
+  params: Record<string, string | number | undefined | null>,
+): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `${API_ADMIN_DASHBOARD()}?${text}` : API_ADMIN_DASHBOARD();
+}
 
 async function getJson(path: string): Promise<unknown> {
   const res = await fetch(`${API_BASE()}${path}`, { headers: getAuthHeaders() });
   return unwrapApiData(await readJsonOrThrow(res));
+}
+
+export interface AdminDashboardResponse {
+  profile: {
+    name: string;
+    initials: string;
+    role: string;
+  };
+  filters: {
+    date: string;
+    propertyId: number | null;
+  };
+  kpis: {
+    propertiesTotal: number;
+    usersTotal: number;
+    usersByRole: {
+      admin: number;
+      manager: number;
+      supervisor: number;
+      staff: number;
+    };
+    masterTasksTotal: number;
+    dailyTasks: {
+      assigned: number;
+      completed: number;
+      pending: number;
+      open: number;
+    };
+  };
+  attendanceToday: {
+    present: number;
+    absent: number;
+    percent: number;
+  };
+  date: string;
+}
+
+export async function getAdminDashboard(
+  filters: { date?: string; propertyId?: number | string } = {},
+): Promise<AdminDashboardResponse> {
+  const res = await fetch(
+    withAdminDashboardQuery({
+      date: filters.date,
+      propertyId: filters.propertyId,
+    }),
+    { headers: getAuthHeaders() },
+  );
+  return unwrapApiData<AdminDashboardResponse>(await readJsonOrThrow(res));
 }
 
 export async function getDashboardMetrics(): Promise<Record<string, unknown>> {

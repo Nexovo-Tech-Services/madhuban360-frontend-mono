@@ -99,10 +99,37 @@ export interface ManagerProfileResponse {
   };
 }
 
+export interface ManagerAttendanceResponse {
+  workDate: string;
+  status: string | null;
+  phase: "NOT_CHECKED_IN" | "ACTIVE" | "COMPLETED";
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  selfieUrl: string | null;
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkOutLatitude: number | null;
+  checkOutLongitude: number | null;
+  shift: string | null;
+}
+
+export interface ManagerAttendanceSubmitPayload {
+  action: "check_in" | "check_out";
+  latitude: string | number;
+  longitude: string | number;
+  selfie?: {
+    uri: string;
+    type?: string;
+    name?: string;
+  };
+}
+
 export interface ManagerTasksResponse {
   date: string;
   supervisorId: number | null;
+  supervisorIds: number[];
   filter: string;
+  status: string;
   counts: {
     all: number;
     critical: number;
@@ -123,12 +150,32 @@ export interface ManagerTasksResponse {
   };
 }
 
+export interface ManagerSupervisorRecord {
+  id: number;
+  name: string;
+  email: string;
+  staffCount: number;
+}
+
 export interface ManagerTaskFilters {
   supervisorId?: number | string;
   date?: string;
   filter?: string;
+  status?: "pending" | "in_review" | "approved" | "rejected";
   page?: number;
   limit?: number;
+}
+
+export interface ManagerReviewDecisionPayload {
+  action: "approve" | "reject";
+  comment?: string;
+}
+
+export interface ManagerReviewDecisionResponse {
+  message?: string;
+  data?: {
+    currentStatus?: string;
+  };
 }
 
 export interface ManagerShiftReportResponse {
@@ -221,6 +268,73 @@ export async function getManagerProfile(): Promise<ManagerProfileResponse> {
   return unwrapApiData<ManagerProfileResponse>(await readJsonOrThrow(res));
 }
 
+async function appendManagerUploadableFile(
+  formData: FormData,
+  fieldName: string,
+  file: NonNullable<ManagerAttendanceSubmitPayload["selfie"]>,
+): Promise<void> {
+  const isReactNativeRuntime =
+    typeof navigator !== "undefined" && navigator.product === "ReactNative";
+  const hasUriScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(file.uri);
+  const normalizedUri = hasUriScheme ? file.uri : `file://${file.uri}`;
+  if (!isReactNativeRuntime) {
+    const response = await fetch(normalizedUri);
+    if (!response.ok) {
+      throw new Error(`Unable to read ${fieldName} file.`);
+    }
+    const blob = await response.blob();
+    const typedBlob =
+      blob.type || !file.type ? blob : blob.slice(0, blob.size, file.type || "image/jpeg");
+    (
+      formData as unknown as {
+        append(name: string, value: Blob, fileName?: string): void;
+      }
+    ).append(fieldName, typedBlob, file.name || `${fieldName}-${Date.now()}.jpg`);
+    return;
+  }
+  (
+    formData as unknown as {
+      append(
+        name: string,
+        value: { uri: string; type: string; name: string },
+      ): void;
+    }
+  ).append(fieldName, {
+    uri: normalizedUri,
+    type: file.type || "image/jpeg",
+    name: file.name || `${fieldName}-${Date.now()}.jpg`,
+  });
+}
+
+export async function getManagerAttendance(
+  date?: string,
+): Promise<ManagerAttendanceResponse> {
+  const res = await fetch(withOptionalDate(`${API()}/manager/attendance`, date), {
+    headers: getAuthHeaders(),
+  });
+  return unwrapApiData<ManagerAttendanceResponse>(await readJsonOrThrow(res));
+}
+
+export async function submitManagerAttendance(
+  payload: ManagerAttendanceSubmitPayload,
+): Promise<ManagerAttendanceResponse> {
+  const formData = new FormData();
+  formData.append("action", payload.action);
+  formData.append("latitude", String(payload.latitude));
+  formData.append("longitude", String(payload.longitude));
+  if (payload.selfie) {
+    await appendManagerUploadableFile(formData, "selfie", payload.selfie);
+  }
+  const headers = getAuthHeaders();
+  delete headers["Content-Type"];
+  const res = await fetch(`${API()}/manager/attendance`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+  return unwrapApiData<ManagerAttendanceResponse>(await readJsonOrThrow(res));
+}
+
 export async function getManagerTasks(
   filters: ManagerTaskFilters = {},
 ): Promise<ManagerTasksResponse> {
@@ -229,12 +343,20 @@ export async function getManagerTasks(
       supervisorId: filters.supervisorId,
       date: filters.date,
       filter: filters.filter,
+      status: filters.status,
       page: filters.page,
       limit: filters.limit,
     }),
     { headers: getAuthHeaders() },
   );
   return unwrapApiData<ManagerTasksResponse>(await readJsonOrThrow(res));
+}
+
+export async function getManagerSupervisors(): Promise<ManagerSupervisorRecord[]> {
+  const res = await fetch(`${API()}/manager/supervisors`, {
+    headers: getAuthHeaders(),
+  });
+  return unwrapApiData<ManagerSupervisorRecord[]>(await readJsonOrThrow(res));
 }
 
 export async function getManagerShiftReport(
@@ -255,4 +377,16 @@ export async function getManagerEmployeeShiftReport(
     { headers: getAuthHeaders() },
   );
   return unwrapApiData<ManagerEmployeeShiftReportResponse>(await readJsonOrThrow(res));
+}
+
+export async function submitManagerReviewDecision(
+  dailyTaskId: number | string,
+  payload: ManagerReviewDecisionPayload,
+): Promise<ManagerReviewDecisionResponse> {
+  const res = await fetch(`${API()}/manager/reviews/${dailyTaskId}/decision`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  return (await readJsonOrThrow(res)) as ManagerReviewDecisionResponse;
 }
