@@ -200,22 +200,21 @@ async function appendUploadableFile(
       file.uri.startsWith("file://") || file.uri.startsWith("content://")
         ? file.uri
         : `file://${file.uri}`;
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onerror = () => reject(new Error(`Unable to read ${fieldName} file.`));
+      xhr.onload = () => resolve(xhr.response as Blob);
+      xhr.responseType = "blob";
+      xhr.open("GET", normalizedUri, true);
+      xhr.send();
+    });
+    const typedBlob =
+      blob.type || !file.type ? blob : blob.slice(0, blob.size, file.type || "image/jpeg");
     (
       formData as unknown as {
-        append(
-          name: string,
-          value: {
-            uri: string;
-            type: string;
-            name: string;
-          },
-        ): void;
+        append(name: string, value: Blob, fileName?: string): void;
       }
-    ).append(fieldName, {
-      uri: normalizedUri,
-      type: file.type || "image/jpeg",
-      name: file.name || `${fieldName}-${Date.now()}.jpg`,
-    });
+    ).append(fieldName, typedBlob, file.name || `${fieldName}-${Date.now()}.jpg`);
     return;
   }
 
