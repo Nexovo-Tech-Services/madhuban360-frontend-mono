@@ -13,7 +13,18 @@ import { UserManagementPage } from "./pages/UserManagementPage";
 
 function RequireAuth() {
   const token = localStorage.getItem("token");
-  if (!token) return <Navigate to="/login" replace />;
+  const rawUser = localStorage.getItem("user");
+  let role = "";
+  try {
+    role = rawUser ? String((JSON.parse(rawUser) as { role?: string }).role ?? "").trim().toLowerCase() : "";
+  } catch {
+    role = "";
+  }
+  if (!token || role !== "admin") {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    return <Navigate to="/login" replace />;
+  }
   return <Outlet />;
 }
 

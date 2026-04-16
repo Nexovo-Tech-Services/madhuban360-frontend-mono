@@ -1,61 +1,101 @@
 import {
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  Key,
+  CalendarClock,
   KeyRound,
-  LogIn,
+  Mail,
+  Phone,
   Shield,
-  TrendingDown,
-  TrendingUp,
   User,
+  UserCog,
+  Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
 import { roleBadgeStyle, statusDotColor, type User as UserType } from "./types";
 
-type Tab = "overview" | "facilities" | "tasks" | "permissions";
+function formatDate(value?: string) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({
-  label,
-  value,
-  trend,
-  trendUp,
+function getRoleSummary(user: UserType) {
+  if (user.role === "Admin") return "Global system access across properties, users, and master tasks.";
+  if (user.role === "Manager") return "Operational oversight with supervisor and review visibility.";
+  if (user.role === "Supervisor") return "Field review access for assigned teams and task verification.";
+  return "Task execution access with reporting routed through the assigned chain.";
+}
+
+function getReportsTo(user: UserType) {
+  if (user.supervisorName) return user.supervisorName;
+  if (user.managerName) return user.managerName;
+  return "Not assigned";
+}
+
+function getHierarchyRows(user: UserType) {
+  return [
+    { label: "Manager", value: user.managerName ?? "Not assigned" },
+    { label: "Supervisor", value: user.supervisorName ?? "Not assigned" },
+    { label: "Reports To", value: getReportsTo(user) },
+    { label: "Department", value: user.department ?? "Not specified" },
+  ];
+}
+
+function getPasswordMeta(password?: string) {
+  if (!password) {
+    return {
+      algorithm: "Not available",
+      cost: "Not available",
+      length: "0 chars",
+    };
+  }
+  const parts = password.split("$");
+  return {
+    algorithm: parts[1] ? parts[1].toUpperCase() : "Stored hash",
+    cost: parts[2] ? `Cost ${parts[2]}` : "Stored hash",
+    length: `${password.length} chars`,
+  };
+}
+
+function InfoPair({ label, value }: { label: string; value?: string }) {
+  return (
+    <div style={styles.infoPair}>
+      <div style={styles.infoLabel}>{label}</div>
+      <div style={styles.infoValue}>{value || "Not available"}</div>
+    </div>
+  );
+}
+
+function DetailCard({
+  icon,
+  title,
+  subtitle,
+  children,
 }: {
-  label: string;
-  value: string | number;
-  trend?: string;
-  trendUp?: boolean;
-  progress?: number;
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div style={vs.statCard}>
-      {trend && (
-        <span style={{ ...vs.trend, color: trendUp ? "#16a34a" : "#dc2626" }}>
-          {trendUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-          {trend}
-        </span>
-      )}
-      <div style={vs.statValue}>{value}</div>
-      <div style={vs.statLabel}>{label}</div>
-    </div>
-  );
-}
-
-// ─── Info row ─────────────────────────────────────────────────────────────────
-function InfoRow({ label, value }: { label: string; value?: string }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3 }}>
-        {label}
+    <section style={styles.card}>
+      <div style={styles.cardHeader}>
+        <div style={styles.cardIcon}>{icon}</div>
+        <div>
+          <div style={styles.cardTitle}>{title}</div>
+          {subtitle ? <div style={styles.cardSubtitle}>{subtitle}</div> : null}
+        </div>
       </div>
-      <div style={{ fontSize: 13.5, color: "var(--c-text)", fontWeight: 500 }}>{value ?? "—"}</div>
-    </div>
+      {children}
+    </section>
   );
 }
 
-// ─── Main modal ───────────────────────────────────────────────────────────────
 export function ViewUserModal({
   user,
   onClose,
@@ -65,293 +105,378 @@ export function ViewUserModal({
   onClose: () => void;
   onEdit: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
-
-  const TABS: { id: Tab; label: string; count?: number }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "facilities", label: "Assigned Facilities", count: user.facilities?.length ?? 0 },
-    { id: "tasks", label: "Task History" },
-    { id: "permissions", label: "Permissions" },
-  ];
+  const passwordMeta = getPasswordMeta(user.password);
+  const createdAt = formatDate(user.createdAt);
 
   return (
-    <div style={vs.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={vs.panel}>
-        {/* Header */}
-        <div style={vs.header}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
-            <div style={{ ...vs.avatar, background: user.avatarColor }}>{user.initials}</div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h2 style={vs.name}>{user.name}</h2>
-                <span style={{ ...vs.statusBadge, background: "#dcfce7", color: "#15803d", borderColor: "#bbf7d0" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusDotColor(user.status), display: "inline-block", marginRight: 4 }} />
+    <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={styles.panel}>
+        <div style={styles.header}>
+          <div style={styles.headerLeft}>
+            <div style={{ ...styles.avatar, background: user.avatarColor }}>{user.initials}</div>
+            <div style={styles.identity}>
+              <div style={styles.identityRow}>
+                <h2 style={styles.name}>{user.name}</h2>
+                <span style={{ ...styles.rolePill, ...roleBadgeStyle(user.role) }}>{user.role}</span>
+                <span style={styles.statusBadge}>
+                  <span style={{ ...styles.statusDot, background: statusDotColor(user.status) }} />
                   {user.status}
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: "var(--c-text-muted)", marginTop: 2 }}>
-                {user.jobTitle ?? user.role} {user.department ? `· ${user.department}` : ""}
+              <div style={styles.identityMeta}>
+                <span style={styles.metaItem}>
+                  <Mail size={13} />
+                  {user.email}
+                </span>
+                {user.phone ? (
+                  <span style={styles.metaItem}>
+                    <Phone size={13} />
+                    {user.phone}
+                  </span>
+                ) : null}
+                <span style={styles.metaItem}>
+                  <CalendarClock size={13} />
+                  Created {createdAt}
+                </span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4, fontSize: 12, color: "var(--c-text-faint)" }}>
-                <span>✉ {user.email}</span>
-                {user.phone && <span>📞 {user.phone}</span>}
-              </div>
+              <p style={styles.identitySummary}>{getRoleSummary(user)}</p>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button style={vs.editBtn} onClick={onEdit}>
-              <User size={14} /> Edit
+          <div style={styles.headerActions}>
+            <button style={styles.editBtn} onClick={onEdit}>
+              <User size={14} /> Edit User
             </button>
-            <button style={vs.resetBtn}>
-              <KeyRound size={14} /> Reset Password
-            </button>
-            <button style={vs.closeBtn} onClick={onClose}>
+            <button style={styles.closeBtn} onClick={onClose}>
               <X size={16} />
             </button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div style={vs.statsRow}>
-          <StatCard label="Total Tasks" value="1,284" trend="+10.5%" trendUp />
-          <StatCard label="Completion Rate" value="98.2%" trend="+3.1%" trendUp />
-          <StatCard label="Attendance Score" value="96.5%" trend="-0.4%" trendUp={false} />
-          <StatCard label="Pending Requests" value={5} />
-        </div>
-
-        {/* Tabs */}
-        <div style={vs.tabBar}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              style={{ ...vs.tab, ...(tab === t.id ? vs.tabActive : {}) }}
-              onClick={() => setTab(t.id)}
+        <div style={styles.content}>
+          <div style={styles.grid}>
+            <DetailCard
+              icon={<UserCog size={16} color="#2563eb" />}
+              title="Account Snapshot"
+              subtitle="Rendered entirely from the current API response."
             >
-              {t.label}
-              {t.count !== undefined && (
-                <span style={vs.tabCount}>{t.count}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div style={vs.content}>
-          {tab === "overview" && (
-            <div style={vs.overviewGrid}>
-              {/* Account Information */}
-              <div style={vs.infoCard}>
-                <div style={vs.cardTitle}>Account Information</div>
-                <InfoRow label="Full Name" value={user.name} />
-                <InfoRow label="Employee ID" value={user.employeeId ?? `FMS-${1000 + user.id}-JD`} />
-                <InfoRow label="Department" value={user.department ?? "Operations & Maintenance"} />
-                <InfoRow label="Reports To" value={user.reportsTo ?? "Sarah Jenkins"} />
-                <InfoRow label="Work Address" value={user.workAddress ?? "102 Main Street, Central Plaza, North Wing, Suite 405"} />
+              <div style={styles.infoGrid}>
+                <InfoPair label="User ID" value={String(user.id)} />
+                <InfoPair label="API Reference" value={user.apiId} />
+                <InfoPair label="Email Handle" value={user.email.split("@")[0] || user.email} />
+                <InfoPair label="Created At" value={createdAt} />
               </div>
+            </DetailCard>
 
-              {/* Security & Access */}
-              <div>
-                <div style={vs.infoCard}>
-                  <div style={vs.cardTitle}>Security &amp; Access</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div style={vs.secRow}>
-                      <div style={vs.secIcon}><Shield size={15} color="#2563eb" /></div>
-                      <div style={{ flex: 1 }}>
-                        <div style={vs.secLabel}>Role Tier</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
-                          <span style={{ ...vs.rolePill, ...roleBadgeStyle(user.role) }}>{user.role}</span>
-                          <button style={vs.changeBtn}>Change</button>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={vs.secRow}>
-                      <div style={vs.secIcon}><LogIn size={15} color="#64748b" /></div>
-                      <div>
-                        <div style={vs.secLabel}>Last Login</div>
-                        <div style={{ fontSize: 13, color: "var(--c-text-muted)", marginTop: 2 }}>{user.lastLogin}</div>
-                      </div>
-                    </div>
-                    <div style={vs.secRow}>
-                      <div style={vs.secIcon}><Key size={15} color="#64748b" /></div>
-                      <div>
-                        <div style={vs.secLabel}>2FA Status</div>
-                        <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                          <CheckCircle2 size={13} /> Enabled
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+            <DetailCard
+              icon={<Users size={16} color="#15803d" />}
+              title="Reporting Chain"
+              subtitle="Current assignment and escalation path."
+            >
+              <div style={styles.infoGrid}>
+                {getHierarchyRows(user).map((row) => (
+                  <InfoPair key={row.label} label={row.label} value={row.value} />
+                ))}
+              </div>
+            </DetailCard>
+
+            <DetailCard
+              icon={<Shield size={16} color="#7c3aed" />}
+              title="Access Profile"
+              subtitle="Role and status reused across multiple detail blocks."
+            >
+              <div style={styles.summaryGrid}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Current Role</div>
+                  <div style={styles.summaryValue}>{user.role}</div>
                 </div>
-
-                {/* Quick Insights */}
-                <div style={{ ...vs.infoCard, marginTop: 14 }}>
-                  <div style={vs.cardTitle}>Quick Insights</div>
-                  <p style={{ fontSize: 12.5, color: "var(--c-text-muted)", lineHeight: 1.6, margin: 0 }}>
-                    {user.name.split(" ")[0]} is in the <strong style={{ color: "var(--c-text)" }}>Top 5%</strong> of performers this quarter. Their completion rate on high-priority work orders is unmatched.
-                  </p>
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--c-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px" }}>QUARTERLY GOAL</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb" }}>84%</span>
-                    </div>
-                    <div style={{ height: 6, borderRadius: 99, background: "var(--c-input-border)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: "84%", background: "#2563eb", borderRadius: 99 }} />
-                    </div>
-                  </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Status</div>
+                  <div style={styles.summaryValue}>{user.status}</div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Department</div>
+                  <div style={styles.summaryValue}>{user.department ?? "Not specified"}</div>
                 </div>
               </div>
-            </div>
-          )}
+            </DetailCard>
 
-          {tab === "facilities" && (
-            <div>
-              {(user.facilities?.length ?? 0) === 0 ? (
-                <p style={{ color: "var(--c-text-muted)", fontSize: 13 }}>No facilities assigned yet.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {user.facilities?.map((f) => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--c-input-bg)", borderRadius: 10, border: "1px solid var(--c-card-border)" }}>
-                      <Building2 size={15} color="#2563eb" />
-                      <span style={{ fontSize: 13.5, color: "var(--c-text)", fontWeight: 500 }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {(tab === "tasks" || tab === "permissions") && (
-            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--c-text-muted)", fontSize: 13 }}>
-              <ClipboardList size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
-              <p style={{ margin: 0 }}>This section is coming soon.</p>
-            </div>
-          )}
+            <DetailCard
+              icon={<KeyRound size={16} color="#d97706" />}
+              title="Stored Password"
+              subtitle="Showing the exact password value returned by the API."
+            >
+              <div style={styles.passwordMetaRow}>
+                <span style={styles.metaBadge}>{passwordMeta.algorithm}</span>
+                <span style={styles.metaBadge}>{passwordMeta.cost}</span>
+                <span style={styles.metaBadge}>{passwordMeta.length}</span>
+              </div>
+              <pre style={styles.passwordBlock}>{user.password ?? "Not available"}</pre>
+            </DetailCard>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const vs: Record<string, React.CSSProperties> = {
+const styles: Record<string, React.CSSProperties> = {
   overlay: {
-    position: "fixed", inset: 0,
+    position: "fixed",
+    inset: 0,
     background: "rgba(15,23,42,0.45)",
     zIndex: 200,
-    display: "flex", alignItems: "center", justifyContent: "center",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
   },
   panel: {
-    width: "100%", maxWidth: 860,
+    width: "100%",
+    maxWidth: 980,
     maxHeight: "92vh",
     background: "var(--c-card)",
     border: "1px solid var(--c-card-border)",
-    borderRadius: 16,
-    display: "flex", flexDirection: "column",
+    borderRadius: 18,
     overflow: "hidden",
-    boxShadow: "0 24px 64px rgba(0,0,0,0.3)",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
   },
   header: {
-    display: "flex", alignItems: "flex-start",
+    padding: "24px 24px 18px",
+    borderBottom: "1px solid var(--c-divider)",
+    display: "flex",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 16,
-    padding: "22px 24px 16px",
-    borderBottom: "1px solid var(--c-divider)",
-    flexWrap: "wrap",
+  },
+  headerLeft: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 16,
+    flex: 1,
+    minWidth: 0,
   },
   avatar: {
-    width: 56, height: 56, borderRadius: "50%",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    color: "#fff", fontSize: 18, fontWeight: 700, flexShrink: 0,
+    width: 60,
+    height: 60,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: 800,
+    flexShrink: 0,
   },
-  name: { margin: 0, fontSize: 18, fontWeight: 800, color: "var(--c-text)" },
+  identity: { flex: 1, minWidth: 0 },
+  identityRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  name: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 800,
+    color: "var(--c-text)",
+  },
+  rolePill: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+  },
   statusBadge: {
-    fontSize: 11.5, fontWeight: 600, padding: "3px 10px",
-    borderRadius: 20, border: "1px solid", display: "inline-flex", alignItems: "center",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "#f8fafc",
+    border: "1px solid var(--c-card-border)",
+    color: "var(--c-text-2)",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+  },
+  identityMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+    marginTop: 8,
+    color: "var(--c-text-muted)",
+    fontSize: 12.5,
+  },
+  metaItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  identitySummary: {
+    margin: "10px 0 0",
+    fontSize: 13,
+    lineHeight: 1.6,
+    color: "var(--c-text-muted)",
+    maxWidth: 720,
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
   },
   editBtn: {
-    display: "inline-flex", alignItems: "center", gap: 6,
-    padding: "7px 14px", fontSize: 13, fontWeight: 600,
-    border: "1px solid var(--c-input-border)", borderRadius: 8,
-    background: "var(--c-card)", color: "var(--c-text-2)", cursor: "pointer",
-  },
-  resetBtn: {
-    display: "inline-flex", alignItems: "center", gap: 6,
-    padding: "7px 14px", fontSize: 13, fontWeight: 600,
-    border: "none", borderRadius: 8,
-    background: "#1e3a5f", color: "#93c5fd", cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "9px 14px",
+    fontSize: 13,
+    fontWeight: 700,
+    borderRadius: 10,
+    border: "1px solid var(--c-input-border)",
+    background: "var(--c-card)",
+    color: "var(--c-text)",
+    cursor: "pointer",
   },
   closeBtn: {
-    width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-    border: "1px solid var(--c-input-border)", borderRadius: 8,
-    background: "var(--c-card)", color: "var(--c-text-muted)", cursor: "pointer",
-  },
-  statsRow: {
-    display: "grid", gridTemplateColumns: "repeat(4,1fr)",
-    gap: 0,
-    borderBottom: "1px solid var(--c-divider)",
-  },
-  statCard: {
-    padding: "14px 20px",
-    borderRight: "1px solid var(--c-divider)",
-    position: "relative" as const,
-  },
-  trend: {
-    fontSize: 11, fontWeight: 700,
-    display: "flex", alignItems: "center", gap: 3,
-    marginBottom: 4,
-  },
-  statValue: { fontSize: 20, fontWeight: 800, color: "var(--c-text)", lineHeight: 1 },
-  statLabel: { fontSize: 11.5, color: "var(--c-text-muted)", marginTop: 4 },
-  tabBar: {
-    display: "flex", gap: 0,
-    borderBottom: "1px solid var(--c-divider)",
-    padding: "0 24px",
-  },
-  tab: {
-    display: "inline-flex", alignItems: "center", gap: 6,
-    padding: "11px 14px", fontSize: 13, fontWeight: 500,
-    border: "none", background: "none", cursor: "pointer",
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    border: "1px solid var(--c-input-border)",
+    background: "var(--c-card)",
     color: "var(--c-text-muted)",
-    borderBottom: "2px solid transparent",
-    marginBottom: -1,
-    transition: "color 0.15s",
+    cursor: "pointer",
   },
-  tabActive: {
-    color: "#2563eb",
-    borderBottomColor: "#2563eb",
-    fontWeight: 600,
+  content: {
+    overflowY: "auto",
+    padding: 24,
   },
-  tabCount: {
-    fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 20,
-    background: "#eff6ff", color: "#2563eb",
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 16,
   },
-  content: { flex: 1, overflowY: "auto" as const, padding: "20px 24px 24px" },
-  overviewGrid: { display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 16 },
-  infoCard: {
+  card: {
     background: "var(--c-input-bg)",
     border: "1px solid var(--c-card-border)",
-    borderRadius: 12, padding: "16px 18px",
+    borderRadius: 14,
+    padding: 18,
+  },
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  cardIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
+    flexShrink: 0,
   },
   cardTitle: {
-    fontSize: 13, fontWeight: 700, color: "var(--c-text)",
-    marginBottom: 14, paddingBottom: 10,
-    borderBottom: "1px solid var(--c-divider)",
+    fontSize: 14,
+    fontWeight: 800,
+    color: "var(--c-text)",
   },
-  secRow: { display: "flex", gap: 10, alignItems: "flex-start" },
-  secIcon: {
-    width: 30, height: 30, borderRadius: 8,
-    background: "var(--c-card)", border: "1px solid var(--c-card-border)",
-    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+  cardSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    color: "var(--c-text-muted)",
+    lineHeight: 1.5,
   },
-  secLabel: { fontSize: 11.5, fontWeight: 600, color: "var(--c-text-faint)", textTransform: "uppercase" as const, letterSpacing: "0.5px" },
-  rolePill: {
-    fontSize: 12, fontWeight: 600, padding: "2px 10px",
-    borderRadius: 20, border: "1px solid",
-    display: "inline-block",
+  infoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 12,
   },
-  changeBtn: {
-    fontSize: 12, color: "#2563eb", fontWeight: 600,
-    border: "none", background: "none", cursor: "pointer", padding: 0,
+  infoPair: {
+    padding: "12px 14px",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
+    borderRadius: 12,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--c-text-faint)",
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    marginBottom: 6,
+  },
+  infoValue: {
+    fontSize: 13.5,
+    fontWeight: 600,
+    color: "var(--c-text)",
+    lineHeight: 1.5,
+    wordBreak: "break-word",
+  },
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 12,
+  },
+  summaryCard: {
+    padding: "14px 12px",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
+    borderRadius: 12,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "var(--c-text-faint)",
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    marginBottom: 6,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "var(--c-text)",
+    lineHeight: 1.4,
+  },
+  passwordMetaRow: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 12,
+  },
+  metaBadge: {
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  passwordBlock: {
+    margin: 0,
+    padding: 14,
+    borderRadius: 12,
+    background: "#0f172a",
+    color: "#e2e8f0",
+    fontSize: 12,
+    lineHeight: 1.6,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-all",
+    overflowX: "auto",
   },
 };

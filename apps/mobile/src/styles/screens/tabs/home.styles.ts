@@ -53,11 +53,14 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
   },
   sitePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 1,
+    maxWidth: "78%",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radii.full,
@@ -130,6 +133,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
+    flexWrap: "wrap",
   },
   heroStatusDot: {
     width: 7,
@@ -159,9 +163,12 @@ export const styles = StyleSheet.create({
     marginTop: 16,
     flexDirection: "row",
     gap: 10,
+    flexWrap: "wrap",
   },
   summaryStat: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
+    minWidth: 92,
     overflow: "hidden",
     alignItems: "center",
     gap: 4,
@@ -217,7 +224,7 @@ export const styles = StyleSheet.create({
   },
   sectionRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -225,6 +232,8 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flex: 1,
+    minWidth: 0,
   },
   sectionTitlePrimary: {
     color: "#28344B",
@@ -251,7 +260,7 @@ export const styles = StyleSheet.create({
   },
   attendanceActionCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     borderRadius: 18,
     borderWidth: 1,
@@ -271,6 +280,7 @@ export const styles = StyleSheet.create({
   },
   attendanceActionBody: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
   },
   attendanceActionTitle: {
@@ -286,6 +296,7 @@ export const styles = StyleSheet.create({
   },
   attendanceActionButton: {
     minWidth: 72,
+    flexShrink: 0,
     borderRadius: radii.full,
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
@@ -341,9 +352,12 @@ export const styles = StyleSheet.create({
   attentionGrid: {
     flexDirection: "row",
     gap: 12,
+    flexWrap: "wrap",
   },
   attentionCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "48%",
+    minWidth: 150,
     minHeight: 108,
     borderRadius: 18,
     padding: 14,
@@ -410,7 +424,10 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   zoneTile: {
-    width: "48.4%",
+    flexGrow: 1,
+    flexBasis: "48%",
+    minWidth: 148,
+    maxWidth: "100%",
     borderRadius: 15,
     paddingHorizontal: 12,
     paddingVertical: 13,
@@ -488,6 +505,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: 8,
+    flexWrap: "wrap",
   },
   activityStatus: {
     color: "#26354C",
@@ -495,6 +513,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 22,
     letterSpacing: -0.3,
+    flexShrink: 1,
   },
   activityTime: {
     color: "#B1BAC8",

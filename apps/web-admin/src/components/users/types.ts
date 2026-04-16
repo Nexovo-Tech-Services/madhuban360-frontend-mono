@@ -8,6 +8,7 @@ export interface User {
   email: string;
   password?: string;
   confirmPassword?: string;
+  createdAt?: string;
   phone?: string;
   jobTitle?: string;
   role: UserRole;

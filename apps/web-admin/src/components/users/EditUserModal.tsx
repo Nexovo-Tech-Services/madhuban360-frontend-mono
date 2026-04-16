@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Clock } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Mail, Phone, Save, UserCog, Users, X } from "lucide-react";
 import { useState } from "react";
 import { ROLES, roleBadgeStyle, statusDotColor, type User } from "./types";
 import {
@@ -8,355 +8,17 @@ import {
   validationStyles,
 } from "../../utils/validation";
 
-const FACILITIES = [
-  { id: "nwp", label: "North Wing Plaza", sub: "Building A, 4205 Industrial Way", primary: true },
-  { id: "dth", label: "Downtown Tech Hub", sub: "Suite 500, 12 Innovation St" },
-  { id: "elc", label: "East Logistics Center", sub: "Warehouse 3, 85 West Blvd" },
-  { id: "ssf", label: "Southern Solar Farm", sub: "Zone B4, 14 Valley Rd" },
-];
-
-export function EditUserModal({
-  user,
-  managers,
-  supervisors,
-  onClose,
-  onSave,
-}: {
-  user: User;
-  managers: Array<{ id: string; name: string }>;
-  supervisors: Array<{ id: string; name: string }>;
-  onClose: () => void;
-  onSave: (u: User) => void;
-}) {
-  const [form, setForm] = useState({
-    fullName: user.name,
-    email: user.email,
-    phone: user.phone ?? "",
-    jobTitle: user.jobTitle ?? user.role,
-    role: user.role,
-    status: user.status,
-    managerId: user.managerId ?? "",
-    supervisorId: user.supervisorId ?? "",
-    twoFactor: true,
-    selectedFacilities: user.facilities ?? ["North Wing Plaza"],
+function formatDate(value?: string) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
-  const [errors, setErrors] = useState<
-    Partial<Record<"fullName" | "email" | "phone" | "jobTitle" | "managerId" | "supervisorId", string>>
-  >({});
-
-  function update<K extends keyof typeof form>(key: K, val: (typeof form)[K]) {
-    setForm((f) => ({ ...f, [key]: val }));
-    if (
-      key === "fullName" ||
-      key === "email" ||
-      key === "phone" ||
-      key === "jobTitle" ||
-      key === "managerId" ||
-      key === "supervisorId"
-    ) {
-      setErrors((current) => ({ ...current, [key]: undefined }));
-    }
-  }
-
-  function toggleFacility(label: string) {
-    setForm((f) => ({
-      ...f,
-      selectedFacilities: f.selectedFacilities.includes(label)
-        ? f.selectedFacilities.filter((x) => x !== label)
-        : [...f.selectedFacilities, label],
-    }));
-  }
-
-  function validate() {
-    const nextErrors: Partial<Record<"fullName" | "email" | "phone" | "jobTitle" | "managerId" | "supervisorId", string>> = {
-      fullName: getRequiredError(form.fullName, "Please enter the user's full name.") ?? undefined,
-      email: getEmailError(form.email) ?? undefined,
-      jobTitle: getRequiredError(form.jobTitle, "Please enter the user's job title.") ?? undefined,
-    };
-    if (form.role === "Supervisor") {
-      nextErrors.managerId = getRequiredError(
-        form.managerId,
-        "Please select a manager for this supervisor.",
-      ) ?? undefined;
-    }
-    if (form.role === "Staff") {
-      nextErrors.supervisorId = getRequiredError(
-        form.supervisorId,
-        "Please select a supervisor for this staff member.",
-      ) ?? undefined;
-    }
-    if (String(form.phone || "").trim()) {
-      nextErrors.phone = getIndianMobileError(form.phone) ?? undefined;
-    }
-    setErrors(nextErrors);
-    return Object.values(nextErrors).every((value) => !value);
-  }
-
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    if (!validate()) return;
-    onSave({
-      ...user,
-      name: form.fullName.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      jobTitle: form.jobTitle.trim(),
-      role: form.role,
-      status: form.status,
-      managerId: form.managerId || undefined,
-      managerName: managers.find((item) => item.id === form.managerId)?.name,
-      supervisorId: form.supervisorId || undefined,
-      supervisorName: supervisors.find((item) => item.id === form.supervisorId)?.name,
-      facilities: form.selectedFacilities,
-    });
-    onClose();
-  }
-
-  return (
-    <div style={es.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={es.panel}>
-        <div style={es.header}>
-          <div>
-            <div style={es.breadcrumb}>Users &rsaquo; Edit User</div>
-            <h2 style={es.title}>Edit User: {user.name}</h2>
-            <p style={es.subtitle}>Update profile details, permissions, and location access.</p>
-          </div>
-          <span
-            style={{
-              ...es.statusBadge,
-              background: "#dcfce7",
-              color: "#15803d",
-              borderColor: "#bbf7d0",
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: statusDotColor(user.status),
-                display: "inline-block",
-                marginRight: 4,
-              }}
-            />
-            {user.status}
-          </span>
-        </div>
-
-        <div style={es.profileCard}>
-          <div style={{ ...es.avatar, background: user.avatarColor }}>{user.initials}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--c-text)" }}>{user.name}</div>
-            <div style={{ fontSize: 12.5, color: "var(--c-text-muted)", marginTop: 2 }}>
-              {form.jobTitle} · {form.selectedFacilities[0] ?? "No facility"}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: 12,
-                color: "var(--c-text-faint)",
-                marginTop: 4,
-              }}
-            >
-              <Clock size={12} /> Last login: {user.lastLogin}
-            </div>
-          </div>
-          <span
-            style={{
-              ...roleBadgeStyle(form.role),
-              padding: "4px 12px",
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            {form.role}
-          </span>
-        </div>
-
-        <form onSubmit={handleSave} style={es.form}>
-          <div style={es.section}>
-            <div style={es.sectionTitle}>Personal Information</div>
-            <div style={es.row2}>
-              <Field label="Full Name" error={errors.fullName}>
-                <input
-                  style={{ ...es.input, ...(errors.fullName ? validationStyles.inputErrorBorder : null) }}
-                  value={form.fullName}
-                  onChange={(e) => update("fullName", e.target.value)}
-                />
-              </Field>
-              <Field label="Email Address" error={errors.email}>
-                <input
-                  style={{ ...es.input, ...(errors.email ? validationStyles.inputErrorBorder : null) }}
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => update("email", e.target.value)}
-                />
-              </Field>
-            </div>
-            <div style={es.row2}>
-              <Field label="Phone Number" error={errors.phone}>
-                <input
-                  style={{ ...es.input, ...(errors.phone ? validationStyles.inputErrorBorder : null) }}
-                  value={form.phone}
-                  onChange={(e) => update("phone", e.target.value)}
-                />
-              </Field>
-              <Field label="Job Title" error={errors.jobTitle}>
-                <input
-                  style={{ ...es.input, ...(errors.jobTitle ? validationStyles.inputErrorBorder : null) }}
-                  value={form.jobTitle}
-                  onChange={(e) => update("jobTitle", e.target.value)}
-                />
-              </Field>
-            </div>
-          </div>
-
-          <div style={es.section}>
-            <div style={es.sectionTitle}>Account Configuration</div>
-            <div style={es.row2}>
-              <Field label="User Role">
-                <select
-                  style={es.input}
-                  value={form.role}
-                  onChange={(e) => update("role", e.target.value as typeof form.role)}
-                >
-                  {ROLES.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Preferred Language">
-                <select style={es.input} value="en" disabled>
-                  <option value="en">English (US)</option>
-                  <option value="hi">Hindi</option>
-                </select>
-              </Field>
-            </div>
-            {form.role === "Supervisor" ? (
-              <Field label="Assigned Manager" error={errors.managerId}>
-                <select
-                  style={{ ...es.input, ...(errors.managerId ? validationStyles.inputErrorBorder : null) }}
-                  value={form.managerId}
-                  onChange={(e) => update("managerId", e.target.value)}
-                >
-                  <option value="">Select a manager</option>
-                  {managers.map((manager) => (
-                    <option key={manager.id} value={manager.id}>
-                      {manager.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-            {form.role === "Staff" ? (
-              <Field label="Assigned Supervisor" error={errors.supervisorId}>
-                <select
-                  style={{ ...es.input, ...(errors.supervisorId ? validationStyles.inputErrorBorder : null) }}
-                  value={form.supervisorId}
-                  onChange={(e) => update("supervisorId", e.target.value)}
-                >
-                  <option value="">Select a supervisor</option>
-                  {supervisors.map((supervisor) => (
-                    <option key={supervisor.id} value={supervisor.id}>
-                      {supervisor.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-            <div style={es.toggleRow}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--c-text)" }}>
-                  Two-Factor Authentication
-                </div>
-                <div style={{ fontSize: 12, color: "var(--c-text-muted)", marginTop: 2 }}>
-                  Require a code for logins from new devices
-                </div>
-              </div>
-              <button
-                type="button"
-                style={{ ...es.toggle, background: form.twoFactor ? "#2563eb" : "var(--c-input-border)" }}
-                onClick={() => update("twoFactor", !form.twoFactor)}
-              >
-                <span
-                  style={{
-                    ...es.toggleThumb,
-                    transform: form.twoFactor ? "translateX(18px)" : "translateX(0)",
-                  }}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div style={es.section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={es.sectionTitle}>Facility Assignment</div>
-              <button
-                type="button"
-                style={es.selectAllBtn}
-                onClick={() => update("selectedFacilities", FACILITIES.map((facility) => facility.label))}
-              >
-                Select All
-              </button>
-            </div>
-            <input style={es.searchInput} placeholder="Search facilities..." />
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {FACILITIES.map((facility) => {
-                const checked = form.selectedFacilities.includes(facility.label);
-                return (
-                  <div
-                    key={facility.id}
-                    style={{
-                      ...es.facilityRow,
-                      background: checked ? "#eff6ff" : "var(--c-input-bg)",
-                      borderColor: checked ? "#bfdbfe" : "var(--c-card-border)",
-                    }}
-                    onClick={() => toggleFacility(facility.label)}
-                  >
-                    <div
-                      style={{
-                        ...es.checkbox,
-                        background: checked ? "#2563eb" : "var(--c-card)",
-                        borderColor: checked ? "#2563eb" : "var(--c-input-border)",
-                      }}
-                    >
-                      {checked && <Check size={11} color="#fff" strokeWidth={3} />}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--c-text)" }}>
-                        {facility.label}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--c-text-muted)" }}>{facility.sub}</div>
-                    </div>
-                    {facility.primary ? <span style={es.primaryBadge}>Primary</span> : null}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={es.footer}>
-            <button type="button" style={es.deactivateBtn}>
-              <AlertTriangle size={14} /> Deactivate User
-            </button>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="button" style={es.cancelBtn} onClick={onClose}>
-                Cancel
-              </button>
-              <button type="submit" style={es.saveBtn}>
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 function Field({
@@ -369,15 +31,405 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      <label style={{ fontSize: 12.5, fontWeight: 600, color: "var(--c-text-muted)" }}>{label}</label>
+    <div style={styles.field}>
+      <label style={styles.label}>{label}</label>
       {children}
       {error ? <div style={validationStyles.errorText}>{error}</div> : null}
     </div>
   );
 }
 
-const es: Record<string, React.CSSProperties> = {
+function SummaryItem({ label, value }: { label: string; value?: string }) {
+  return (
+    <div style={styles.summaryItem}>
+      <div style={styles.summaryLabel}>{label}</div>
+      <div style={styles.summaryValue}>{value || "Not available"}</div>
+    </div>
+  );
+}
+
+export function EditUserModal({
+  user,
+  managers,
+  supervisors,
+  onClose,
+  onSave,
+  onResetPassword,
+}: {
+  user: User;
+  managers: Array<{ id: string; name: string }>;
+  supervisors: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onSave: (u: User) => void;
+  onResetPassword: (nextPassword: { password: string; confirmPassword: string }) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    fullName: user.name,
+    email: user.email,
+    phone: user.phone ?? "",
+    role: user.role,
+    status: user.status,
+    department: user.department ?? "",
+    managerId: user.managerId ?? "",
+    supervisorId: user.supervisorId ?? "",
+  });
+  const [resetForm, setResetForm] = useState({
+    password: "",
+    confirmPassword: "",
+  });
+  const [errors, setErrors] = useState<
+    Partial<Record<"fullName" | "email" | "phone" | "managerId" | "supervisorId", string>>
+  >({});
+  const [resetErrors, setResetErrors] = useState<
+    Partial<Record<"password" | "confirmPassword", string>>
+  >({});
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+    if (key === "fullName" || key === "email" || key === "phone" || key === "managerId" || key === "supervisorId") {
+      setErrors((current) => ({ ...current, [key]: undefined }));
+    }
+  }
+
+  function updateReset<K extends keyof typeof resetForm>(key: K, value: (typeof resetForm)[K]) {
+    setResetForm((current) => ({ ...current, [key]: value }));
+    setResetErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
+  function validate() {
+    const nextErrors: Partial<Record<"fullName" | "email" | "phone" | "managerId" | "supervisorId", string>> = {
+      fullName: getRequiredError(form.fullName, "Please enter the user's full name.") ?? undefined,
+      email: getEmailError(form.email) ?? undefined,
+    };
+    if (String(form.phone || "").trim()) {
+      nextErrors.phone = getIndianMobileError(form.phone) ?? undefined;
+    }
+    if (form.role === "Supervisor") {
+      nextErrors.managerId =
+        getRequiredError(form.managerId, "Please select a manager for this supervisor.") ?? undefined;
+    }
+    if (form.role === "Staff") {
+      nextErrors.supervisorId =
+        getRequiredError(form.supervisorId, "Please select a supervisor for this staff member.") ?? undefined;
+    }
+    setErrors(nextErrors);
+    return Object.values(nextErrors).every((value) => !value);
+  }
+
+  function validateReset() {
+    const nextErrors: Partial<Record<"password" | "confirmPassword", string>> = {};
+    if (!resetForm.password.trim()) {
+      nextErrors.password = "Please enter a new password.";
+    }
+    if (!resetForm.confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Please confirm the new password.";
+    } else if (resetForm.password !== resetForm.confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
+    setResetErrors(nextErrors);
+    return Object.values(nextErrors).every((value) => !value);
+  }
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) return;
+    onSave({
+      ...user,
+      name: form.fullName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      role: form.role,
+      status: form.status,
+      department: form.department.trim() || undefined,
+      managerId: form.role === "Supervisor" ? form.managerId || undefined : undefined,
+      managerName:
+        form.role === "Supervisor"
+          ? managers.find((item) => item.id === form.managerId)?.name
+          : undefined,
+      supervisorId: form.role === "Staff" ? form.supervisorId || undefined : undefined,
+      supervisorName:
+        form.role === "Staff"
+          ? supervisors.find((item) => item.id === form.supervisorId)?.name
+          : undefined,
+    });
+    onClose();
+  }
+
+  async function handleResetPassword() {
+    if (!validateReset()) return;
+    try {
+      setResetLoading(true);
+      await onResetPassword({
+        password: resetForm.password,
+        confirmPassword: resetForm.confirmPassword,
+      });
+      setResetForm({ password: "", confirmPassword: "" });
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  return (
+    <div style={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={styles.panel}>
+        <div style={styles.header}>
+          <div style={styles.headerLeft}>
+            <div style={{ ...styles.avatar, background: user.avatarColor }}>{user.initials}</div>
+            <div>
+              <div style={styles.headerRow}>
+                <h2 style={styles.title}>Edit User</h2>
+                <span style={{ ...styles.rolePill, ...roleBadgeStyle(form.role) }}>{form.role}</span>
+                <span style={styles.statusBadge}>
+                  <span style={{ ...styles.statusDot, background: statusDotColor(form.status) }} />
+                  {form.status}
+                </span>
+              </div>
+              <div style={styles.metaRow}>
+                <span style={styles.metaItem}>
+                  <Mail size={13} />
+                  {user.email}
+                </span>
+                {user.phone ? (
+                  <span style={styles.metaItem}>
+                    <Phone size={13} />
+                    {user.phone}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <button style={styles.closeBtn} onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} style={styles.form}>
+          <div style={styles.grid}>
+            <section style={styles.card}>
+              <div style={styles.cardHeader}>
+                <div style={styles.cardIcon}>
+                  <UserCog size={16} color="#2563eb" />
+                </div>
+                <div style={styles.cardTitle}>User Details</div>
+              </div>
+
+              <div style={styles.row2}>
+                <Field label="Full Name" error={errors.fullName}>
+                  <input
+                    style={{ ...styles.input, ...(errors.fullName ? validationStyles.inputErrorBorder : null) }}
+                    value={form.fullName}
+                    onChange={(e) => update("fullName", e.target.value)}
+                  />
+                </Field>
+                <Field label="Email Address" error={errors.email}>
+                  <input
+                    type="email"
+                    style={{ ...styles.input, ...(errors.email ? validationStyles.inputErrorBorder : null) }}
+                    value={form.email}
+                    onChange={(e) => update("email", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <div style={styles.row2}>
+                <Field label="Phone Number" error={errors.phone}>
+                  <input
+                    style={{ ...styles.input, ...(errors.phone ? validationStyles.inputErrorBorder : null) }}
+                    value={form.phone}
+                    onChange={(e) => update("phone", e.target.value)}
+                  />
+                </Field>
+                <Field label="Department">
+                  <input
+                    style={styles.input}
+                    value={form.department}
+                    onChange={(e) => update("department", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <div style={styles.row2}>
+                <Field label="Role">
+                  <select
+                    style={styles.input}
+                    value={form.role}
+                    onChange={(e) => update("role", e.target.value as typeof form.role)}
+                  >
+                    {ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select
+                    style={styles.input}
+                    value={form.status}
+                    onChange={(e) => update("status", e.target.value as typeof form.status)}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </Field>
+              </div>
+
+              {form.role === "Supervisor" ? (
+                <Field label="Assigned Manager" error={errors.managerId}>
+                  <select
+                    style={{ ...styles.input, ...(errors.managerId ? validationStyles.inputErrorBorder : null) }}
+                    value={form.managerId}
+                    onChange={(e) => update("managerId", e.target.value)}
+                  >
+                    <option value="">Select a manager</option>
+                    {managers.map((manager) => (
+                      <option key={manager.id} value={manager.id}>
+                        {manager.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+
+              {form.role === "Staff" ? (
+                <Field label="Assigned Supervisor" error={errors.supervisorId}>
+                  <select
+                    style={{ ...styles.input, ...(errors.supervisorId ? validationStyles.inputErrorBorder : null) }}
+                    value={form.supervisorId}
+                    onChange={(e) => update("supervisorId", e.target.value)}
+                  >
+                    <option value="">Select a supervisor</option>
+                    {supervisors.map((supervisor) => (
+                      <option key={supervisor.id} value={supervisor.id}>
+                        {supervisor.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+            </section>
+
+            <section style={styles.sidebar}>
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <div style={styles.cardIcon}>
+                    <Users size={16} color="#15803d" />
+                  </div>
+                  <div style={styles.cardTitle}>Account Summary</div>
+                </div>
+                <div style={styles.summaryGrid}>
+                  <SummaryItem label="User ID" value={String(user.id)} />
+                  <SummaryItem label="API Reference" value={user.apiId} />
+                  <SummaryItem label="Created At" value={formatDate(user.createdAt)} />
+                  <SummaryItem label="Manager" value={user.managerName} />
+                  <SummaryItem label="Supervisor" value={user.supervisorName} />
+                </div>
+              </div>
+
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <div style={styles.cardIcon}>
+                    <KeyRound size={16} color="#d97706" />
+                  </div>
+                  <div style={styles.cardTitle}>Reset Password</div>
+                </div>
+                <div style={styles.resetSection}>
+                  <Field label="Current Password">
+                    <div style={styles.passwordFieldWrap}>
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        style={{ ...styles.input, ...styles.passwordInput }}
+                        value={user.password ?? ""}
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        style={styles.passwordToggle}
+                        onClick={() => setShowCurrentPassword((current) => !current)}
+                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                      >
+                        {showCurrentPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </Field>
+                  <Field label="New Password" error={resetErrors.password}>
+                    <div style={styles.passwordFieldWrap}>
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        style={{
+                          ...styles.input,
+                          ...styles.passwordInput,
+                          ...(resetErrors.password ? validationStyles.inputErrorBorder : null),
+                        }}
+                        value={resetForm.password}
+                        onChange={(e) => updateReset("password", e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        style={styles.passwordToggle}
+                        onClick={() => setShowNewPassword((current) => !current)}
+                        aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                      >
+                        {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </Field>
+                  <Field label="Confirm Password" error={resetErrors.confirmPassword}>
+                    <div style={styles.passwordFieldWrap}>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        style={{
+                          ...styles.input,
+                          ...styles.passwordInput,
+                          ...(resetErrors.confirmPassword ? validationStyles.inputErrorBorder : null),
+                        }}
+                        value={resetForm.confirmPassword}
+                        onChange={(e) => updateReset("confirmPassword", e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        style={styles.passwordToggle}
+                        onClick={() => setShowConfirmPassword((current) => !current)}
+                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      >
+                        {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </Field>
+                  <button
+                    type="button"
+                    style={{ ...styles.resetBtn, ...(resetLoading ? styles.resetBtnDisabled : null) }}
+                    onClick={() => void handleResetPassword()}
+                    disabled={resetLoading}
+                  >
+                    <KeyRound size={14} />
+                    {resetLoading ? "Resetting..." : "Reset Password"}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div style={styles.footer}>
+            <button type="button" style={styles.cancelBtn} onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" style={styles.saveBtn}>
+              <Save size={14} /> Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: "fixed",
     inset: 0,
@@ -390,68 +442,163 @@ const es: Record<string, React.CSSProperties> = {
   },
   panel: {
     width: "100%",
-    maxWidth: 680,
+    maxWidth: 960,
     maxHeight: "92vh",
     background: "var(--c-card)",
     border: "1px solid var(--c-card-border)",
-    borderRadius: 16,
+    borderRadius: 18,
+    overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    overflow: "hidden",
-    boxShadow: "0 24px 64px rgba(0,0,0,0.3)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
   },
   header: {
+    padding: "22px 24px 18px",
+    borderBottom: "1px solid var(--c-divider)",
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    padding: "22px 24px 14px",
-    borderBottom: "1px solid var(--c-divider)",
-    gap: 12,
+    gap: 16,
   },
-  breadcrumb: { fontSize: 12, color: "var(--c-text-muted)", marginBottom: 4 },
-  title: { margin: 0, fontSize: 18, fontWeight: 800, color: "var(--c-text)" },
-  subtitle: { margin: "4px 0 0", fontSize: 12.5, color: "var(--c-text-muted)" },
-  statusBadge: {
-    fontSize: 11.5,
-    fontWeight: 600,
-    padding: "4px 10px",
-    borderRadius: 20,
-    border: "1px solid",
-    display: "inline-flex",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-  profileCard: {
+  headerLeft: {
     display: "flex",
     alignItems: "center",
     gap: 14,
-    padding: "14px 24px",
-    background: "var(--c-input-bg)",
-    borderBottom: "1px solid var(--c-divider)",
+    minWidth: 0,
   },
   avatar: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#fff",
-    fontSize: 15,
-    fontWeight: 700,
+    fontSize: 18,
+    fontWeight: 800,
     flexShrink: 0,
   },
-  form: { flex: 1, overflowY: "auto" as const, padding: "20px 24px" },
-  section: { marginBottom: 24 },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: "var(--c-text)",
-    paddingBottom: 10,
-    marginBottom: 14,
-    borderBottom: "1px solid var(--c-divider)",
+  headerRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
   },
-  row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 },
+  title: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 800,
+    color: "var(--c-text)",
+  },
+  rolePill: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  statusBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    borderRadius: 999,
+    background: "#f8fafc",
+    border: "1px solid var(--c-card-border)",
+    color: "var(--c-text-2)",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+  },
+  metaRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+    marginTop: 8,
+    color: "var(--c-text-muted)",
+    fontSize: 12.5,
+  },
+  metaItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    border: "1px solid var(--c-input-border)",
+    background: "var(--c-card)",
+    color: "var(--c-text-muted)",
+    cursor: "pointer",
+  },
+  form: {
+    overflowY: "auto",
+    padding: 24,
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.3fr) minmax(320px, 0.95fr)",
+    gap: 18,
+  },
+  sidebar: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  card: {
+    background: "var(--c-input-bg)",
+    border: "1px solid var(--c-card-border)",
+    borderRadius: 14,
+    padding: 18,
+  },
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  cardIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
+    flexShrink: 0,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: 800,
+    color: "var(--c-text)",
+  },
+  row2: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    marginBottom: 12,
+  },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+  },
+  label: {
+    fontSize: 12.5,
+    fontWeight: 600,
+    color: "var(--c-text-muted)",
+  },
   input: {
     padding: "9px 12px",
     fontSize: 13.5,
@@ -459,129 +606,108 @@ const es: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     outline: "none",
     color: "var(--c-text)",
-    background: "var(--c-input-bg)",
+    background: "var(--c-card)",
     width: "100%",
-    boxSizing: "border-box" as const,
+    boxSizing: "border-box",
   },
-  toggleRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 14px",
-    background: "var(--c-input-bg)",
-    border: "1px solid var(--c-card-border)",
-    borderRadius: 10,
+  passwordFieldWrap: {
+    position: "relative",
   },
-  toggle: {
-    width: 40,
-    height: 22,
-    borderRadius: 99,
-    border: "none",
-    cursor: "pointer",
-    padding: 2,
-    display: "flex",
-    alignItems: "center",
-    transition: "background 0.2s",
-    flexShrink: 0,
+  passwordInput: {
+    paddingRight: 40,
   },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#ffffff",
-    display: "block",
-    transition: "transform 0.2s",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-  },
-  selectAllBtn: {
-    fontSize: 12.5,
-    fontWeight: 600,
-    color: "#2563eb",
-    border: "none",
-    background: "none",
-    cursor: "pointer",
-    padding: 0,
-  },
-  searchInput: {
-    width: "100%",
-    padding: "8px 12px",
-    fontSize: 13.5,
-    border: "1px solid var(--c-input-border)",
-    borderRadius: 8,
-    outline: "none",
-    color: "var(--c-text)",
-    background: "var(--c-input-bg)",
-    boxSizing: "border-box" as const,
-    marginBottom: 10,
-  },
-  facilityRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "11px 14px",
-    borderRadius: 10,
-    border: "1px solid",
-    cursor: "pointer",
-    transition: "background 0.15s, border-color 0.15s",
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    border: "2px solid",
+  passwordToggle: {
+    position: "absolute",
+    top: "50%",
+    right: 10,
+    transform: "translateY(-50%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
-    transition: "background 0.15s, border-color 0.15s",
+    border: "none",
+    background: "transparent",
+    color: "var(--c-text-muted)",
+    cursor: "pointer",
+    padding: 0,
   },
-  primaryBadge: {
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+  },
+  summaryItem: {
+    padding: "12px 14px",
+    background: "var(--c-card)",
+    border: "1px solid var(--c-card-border)",
+    borderRadius: 12,
+  },
+  summaryLabel: {
     fontSize: 11,
     fontWeight: 700,
-    padding: "2px 8px",
-    borderRadius: 20,
-    background: "#dbeafe",
-    color: "#1d4ed8",
+    color: "var(--c-text-faint)",
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    marginBottom: 6,
+  },
+  summaryValue: {
+    fontSize: 13.5,
+    fontWeight: 600,
+    color: "var(--c-text)",
+    lineHeight: 1.5,
+    wordBreak: "break-word",
+  },
+  resetSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  resetBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "none",
+    background: "#d97706",
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  resetBtnDisabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
   },
   footer: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 8,
-    marginTop: 4,
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 18,
+    paddingTop: 16,
     borderTop: "1px solid var(--c-divider)",
   },
-  deactivateBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 14px",
-    fontSize: 13,
-    fontWeight: 600,
-    border: "1px solid #fca5a5",
-    borderRadius: 8,
-    background: "#fff1f2",
-    color: "#dc2626",
-    cursor: "pointer",
-  },
   cancelBtn: {
-    padding: "9px 20px",
+    padding: "10px 18px",
     fontSize: 13.5,
-    fontWeight: 600,
+    fontWeight: 700,
     border: "1px solid var(--c-input-border)",
-    borderRadius: 8,
+    borderRadius: 10,
     background: "var(--c-card)",
     color: "var(--c-text-2)",
     cursor: "pointer",
   },
   saveBtn: {
-    padding: "9px 22px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 18px",
     fontSize: 13.5,
-    fontWeight: 600,
+    fontWeight: 700,
     border: "none",
-    borderRadius: 8,
+    borderRadius: 10,
     background: "#2563eb",
-    color: "#ffffff",
+    color: "#fff",
     cursor: "pointer",
   },
 };

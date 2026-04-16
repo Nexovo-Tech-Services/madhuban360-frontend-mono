@@ -31,6 +31,7 @@ import {
   getRoles,
   getSupervisors,
   getUsers,
+  resetPassword,
   updateUser,
   type ManagerRecord,
   type RoleRecord,
@@ -105,6 +106,8 @@ export function UserManagementPage() {
       apiId: String(raw._id ?? raw.id ?? ""),
       name,
       email,
+      password: raw.password ? String(raw.password) : undefined,
+      createdAt: raw.createdAt ? String(raw.createdAt) : undefined,
       phone: raw.phone ? String(raw.phone) : undefined,
       jobTitle: raw.jobTitle ? String(raw.jobTitle) : undefined,
       role,
@@ -271,6 +274,21 @@ export function UserManagementPage() {
     }
   }
 
+  async function handleResetPassword(u: User, nextPassword: { password: string; confirmPassword: string }) {
+    try {
+      const response = await resetPassword(u.apiId, nextPassword.password, nextPassword.confirmPassword);
+      await refreshUsers();
+      showToast(
+        "success",
+        "Password Reset",
+        response.message ?? `Password has been reset for ${u.name}.`,
+      );
+    } catch (e) {
+      showToast("error", "Failed to reset password", e instanceof Error ? e.message : "Please try again.");
+      throw e;
+    }
+  }
+
   return (
     <div>
       <SkeletonTheme />
@@ -422,6 +440,7 @@ export function UserManagementPage() {
           supervisors={supervisors.map((item) => ({ id: String(item.id), name: item.name }))}
           onClose={() => setModal({ type: "none" })}
           onSave={handleSaveEdit}
+          onResetPassword={(nextPassword) => handleResetPassword(modal.user, nextPassword)}
         />
       )}
       {modal.type === "delete" && (

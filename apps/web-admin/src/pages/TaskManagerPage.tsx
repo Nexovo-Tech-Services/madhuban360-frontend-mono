@@ -13,7 +13,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useShellHeader } from "../context/ShellHeaderContext";
 import { useToast } from "../context/ToastContext";
 import {
@@ -22,7 +22,7 @@ import {
   getMasterTasks,
   getProperties,
   getStaffMasterTasks,
-  getUsersForAssignee,
+  getStaffUsers,
   type MasterTaskRecord,
   type StaffMasterTaskRecord,
 } from "@madhuban/api";
@@ -155,6 +155,9 @@ const STATUS_COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
   { id: "review",     label: "REVIEW",      color: "#d97706" },
   { id: "completed",  label: "COMPLETED",   color: "#16a34a" },
 ];
+
+void INITIAL_TASKS;
+void STATUS_COLUMNS;
 
 // ─── Priority helpers ─────────────────────────────────────────────────────────
 const PRIORITY_STYLE: Record<TaskPriority, { bg: string; color: string }> = {
@@ -681,7 +684,7 @@ type ModalState =
   | { type: "view"; task: Task };
 
 export function TaskManagerPage() {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [masterTasks, setMasterTasks] = useState<MasterTaskListItem[]>([]);
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const { showToast } = useToast();
@@ -689,6 +692,8 @@ export function TaskManagerPage() {
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
   const [zones, setZones] = useState<ZoneOption[]>([]);
   const [activeTab, setActiveTab] = useState<ManagerTab>("master");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [assignmentDate, setAssignmentDate] = useState(new Date().toISOString().slice(0, 10));
 
   useShellHeader({ showSearch: true });
 
@@ -743,15 +748,27 @@ export function TaskManagerPage() {
     };
   }
 
+  async function refreshAssignedTasks(
+    nextStaffId = selectedStaffId,
+    nextStartDate = assignmentDate,
+  ) {
+    if (!nextStaffId) {
+      setTasks([]);
+      return;
+    }
+    const assignmentList = await getStaffMasterTasks({
+      staffId: nextStaffId,
+      startDate: nextStartDate,
+    });
+    setTasks((Array.isArray(assignmentList) ? assignmentList : []).map((t, idx) => toUiAssignmentTask(t, idx)));
+  }
+
   async function refreshTasks() {
     try {
       setLoading(true);
-      const [assignmentList, masterTaskList] = await Promise.all([
-        getStaffMasterTasks(),
-        getMasterTasks(),
-      ]);
-      setTasks((Array.isArray(assignmentList) ? assignmentList : []).map((t, idx) => toUiAssignmentTask(t, idx)));
+      const masterTaskList = await getMasterTasks();
       setMasterTasks((Array.isArray(masterTaskList) ? masterTaskList : []).map(toMasterTaskItem));
+      await refreshAssignedTasks();
     } catch (e) {
       console.error(e);
       showToast("error", "Failed to load tasks", e instanceof Error ? e.message : "Please try again.");
@@ -762,14 +779,15 @@ export function TaskManagerPage() {
 
   async function refreshAssignees() {
     try {
-      const list = (await getUsersForAssignee()) as Record<string, unknown>[];
+      const list = await getStaffUsers();
       const opts = (Array.isArray(list) ? list : [])
         .map((u) => ({
-          id: String((u as { _id?: unknown; id?: unknown })._id ?? (u as { id?: unknown }).id ?? ""),
+          id: String(u.id),
           name: String((u as { name?: unknown }).name ?? (u as { fullName?: unknown }).fullName ?? (u as { email?: unknown }).email ?? "—"),
         }))
         .filter((o) => o.id && o.name);
       setAssignees(opts);
+      setSelectedStaffId((current) => current || opts[0]?.id || "");
     } catch (e) {
       console.error(e);
       setAssignees([]);
@@ -801,6 +819,11 @@ export function TaskManagerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    void refreshAssignedTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStaffId, assignmentDate]);
+
   async function handleCreate(form: MasterTaskForm) {
     try {
       await createTask({
@@ -830,7 +853,10 @@ export function TaskManagerPage() {
         startDate: form.assignmentStartDate,
         endDate: form.assignmentEndDate,
       });
+      setSelectedStaffId(form.assigneeId);
+      setAssignmentDate(form.assignmentStartDate);
       await refreshTasks();
+      await refreshAssignedTasks(form.assigneeId, form.assignmentStartDate);
       setActiveTab("assigned");
       showToast("success", "Task Assigned!", `"${task.title}" has been assigned successfully.`);
     } catch (e) {
@@ -856,15 +882,6 @@ export function TaskManagerPage() {
       "The current admin API flow does not document assignment status updates yet.",
     );
   }
-
-  const grouped = useMemo(
-    () =>
-      STATUS_COLUMNS.map((col) => ({
-        ...col,
-        tasks: tasks.filter((t) => t.status === col.id),
-      })),
-    [tasks],
-  );
 
   if (loading) {
     return <TaskManagerSkeleton />;
@@ -967,27 +984,48 @@ export function TaskManagerPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {grouped.map((col) => (
-            <div key={col.id}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--c-text)", letterSpacing: "0.5px" }}>{col.label}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, padding: "1px 8px", borderRadius: 20, background: "var(--c-input-bg)", color: col.color, border: "1px solid var(--c-card-border)" }}>
-                  {col.tasks.length}
-                </span>
-              </div>
-
-              {col.tasks.length === 0 ? (
-                <div style={pg.emptyState}>No assigned tasks in this column</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {col.tasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onView={(t) => setModal({ type: "view", task: t })} />
-                  ))}
-                </div>
-              )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={pg.assignedFilters}>
+            <div style={pg.assignedFilterField}>
+              <label style={pg.assignedFilterLabel}>Staff Member</label>
+              <select
+                style={pg.assignedSelect}
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+              >
+                <option value="">Select staff</option>
+                {assignees.map((assignee) => (
+                  <option key={assignee.id} value={assignee.id}>
+                    {assignee.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          ))}
+            <div style={pg.assignedFilterField}>
+              <label style={pg.assignedFilterLabel}>Start Date</label>
+              <input
+                type="date"
+                style={pg.assignedSelect}
+                value={assignmentDate}
+                onChange={(e) => setAssignmentDate(e.target.value)}
+              />
+            </div>
+            <button style={pg.assignedRefreshBtn} onClick={() => void refreshAssignedTasks()}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+          </div>
+
+          {!selectedStaffId ? (
+            <div style={pg.emptyState}>Select a staff member to view assigned tasks.</div>
+          ) : tasks.length === 0 ? (
+            <div style={pg.emptyState}>No assigned tasks found for the selected staff member and date.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {tasks.map((task) => (
+                <TaskCard key={task.id} task={task} onView={(t) => setModal({ type: "view", task: t })} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1043,6 +1081,52 @@ const pg: Record<string, React.CSSProperties> = {
   filterPill: { padding: "5px 12px", fontSize: 13, fontWeight: 500, border: "1px solid var(--c-input-border)", borderRadius: 20, background: "var(--c-card)", color: "var(--c-text-2)", cursor: "pointer" },
   addColBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", fontSize: 13.5, fontWeight: 600, border: "1.5px dashed var(--c-input-border)", borderRadius: 10, background: "none", color: "var(--c-text-faint)", cursor: "pointer", width: "100%", marginTop: 4 },
   toolbar: { display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" },
+  assignedFilters: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 12,
+    flexWrap: "wrap",
+    padding: 16,
+    border: "1px solid var(--c-card-border)",
+    borderRadius: 14,
+    background: "var(--c-card)",
+  },
+  assignedFilterField: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    minWidth: 220,
+  },
+  assignedFilterLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "var(--c-text-faint)",
+    letterSpacing: "0.4px",
+    textTransform: "uppercase",
+  },
+  assignedSelect: {
+    padding: "9px 12px",
+    fontSize: 13.5,
+    border: "1px solid var(--c-input-border)",
+    borderRadius: 10,
+    background: "var(--c-input-bg)",
+    color: "var(--c-text)",
+    outline: "none",
+  },
+  assignedRefreshBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    height: 40,
+    padding: "0 14px",
+    fontSize: 13,
+    fontWeight: 700,
+    border: "1px solid var(--c-input-border)",
+    borderRadius: 10,
+    background: "var(--c-card)",
+    color: "var(--c-text-2)",
+    cursor: "pointer",
+  },
   tabBar: { display: "inline-flex", alignItems: "center", gap: 8, padding: 4, background: "var(--c-input-bg)", border: "1px solid var(--c-card-border)", borderRadius: 14 },
   tabBtn: { display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: "none", background: "transparent", color: "var(--c-text-muted)", fontSize: 13, fontWeight: 700, cursor: "pointer" },
   tabBtnActive: { background: "var(--c-card)", color: "#2563eb", boxShadow: "0 8px 24px rgba(37,99,235,0.12)" },

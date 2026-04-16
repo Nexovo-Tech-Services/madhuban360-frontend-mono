@@ -9,12 +9,13 @@ import {
   LayoutGrid,
   Map,
   MapPin,
-  MoreVertical,
+  Pencil,
   Plus,
   Search,
   Settings,
   Shield,
   Thermometer,
+  Trash2,
   TrendingDown,
   TrendingUp,
   Wind,
@@ -27,12 +28,14 @@ import { useShellHeader } from "../context/ShellHeaderContext";
 import { useToast } from "../context/ToastContext";
 import {
   createProperty,
+  deleteProperty,
   getAssetSummary,
   getAssets,
   getProperties,
   getPropertySummary,
   getReports,
   getTasks,
+  updateProperty,
 } from "@madhuban/api";
 import { SkeletonBlock, SkeletonCardList, SkeletonTheme } from "../components/Skeleton";
 import {
@@ -50,9 +53,12 @@ type MainTab = "list" | "workorders" | "assets" | "reports";
 type ReportTab = "overview" | "financial" | "operational" | "sustainability";
 
 interface Property {
-  id: number; name: string; address: string; type: PropertyType;
+  id: number; apiId?: string; name: string; address: string; type: PropertyType;
   amcStatus: AMCStatus;
   gradFrom: string; gradTo: string;
+  imageUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 interface WorkOrder {
   id: string; description: string; descSub: string;
@@ -185,47 +191,111 @@ function woAction(s: WOStatus) {
 }
 
 // ─── Add Property Modal ───────────────────────────────────────────────────────
-interface AddPropForm { name: string; propId: string; type: PropertyType | ""; address: string; city: string; state: string; zip: string; contact: string; }
-const EMPTY_PROP: AddPropForm = { name:"", propId:"", type:"", address:"", city:"", state:"", zip:"", contact:"" };
+interface PropertyZoneDraft {
+  name: string;
+}
 
-function AddPropertyModal({
+interface PropertyFloorDraft {
+  floorNumber: string;
+  zones: PropertyZoneDraft[];
+}
+
+interface PropertyFormState {
+  propertyName: string;
+  floors: PropertyFloorDraft[];
+  image: File | null;
+}
+
+const EMPTY_PROP: PropertyFormState = {
+  propertyName: "",
+  floors: [{ floorNumber: "1", zones: [{ name: "" }] }],
+  image: null,
+};
+
+function PropertyModal({
+  mode,
+  initial,
   onClose,
-  onAdded,
+  onSubmit,
 }: {
+  mode: "create" | "edit";
+  initial?: Partial<PropertyFormState>;
   onClose: () => void;
-  onAdded: () => void;
+  onSubmit: (form: PropertyFormState) => Promise<void>;
 }) {
-  const [form, setForm] = useState<AddPropForm>(EMPTY_PROP);
-  const [errors, setErrors] = useState<Partial<Record<keyof AddPropForm, string>>>({});
-  const { showToast } = useToast();
-  function set(k: keyof AddPropForm, v: string) {
-    setForm(f => ({ ...f, [k]: v }));
-    setErrors((current) => ({ ...current, [k]: undefined }));
+  const [form, setForm] = useState<PropertyFormState>({ ...EMPTY_PROP, ...initial });
+  const [errors, setErrors] = useState<Partial<Record<"propertyName" | "floors", string>>>({});
+  const [saving, setSaving] = useState(false);
+
+  function set<K extends keyof PropertyFormState>(key: K, value: PropertyFormState[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
   }
+
+  function updateFloor(index: number, next: PropertyFloorDraft) {
+    setForm((current) => ({
+      ...current,
+      floors: current.floors.map((floor, floorIndex) => (floorIndex === index ? next : floor)),
+    }));
+    setErrors((current) => ({ ...current, floors: undefined }));
+  }
+
+  function addFloor() {
+    setForm((current) => ({
+      ...current,
+      floors: [
+        ...current.floors,
+        { floorNumber: String(current.floors.length + 1), zones: [{ name: "" }] },
+      ],
+    }));
+  }
+
+  function removeFloor(index: number) {
+    setForm((current) => ({
+      ...current,
+      floors: current.floors.filter((_, floorIndex) => floorIndex !== index),
+    }));
+  }
+
+  function addZone(floorIndex: number) {
+    setForm((current) => ({
+      ...current,
+      floors: current.floors.map((floor, index) =>
+        index === floorIndex ? { ...floor, zones: [...floor.zones, { name: "" }] } : floor,
+      ),
+    }));
+  }
+
+  function removeZone(floorIndex: number, zoneIndex: number) {
+    setForm((current) => ({
+      ...current,
+      floors: current.floors.map((floor, index) =>
+        index === floorIndex
+          ? { ...floor, zones: floor.zones.filter((_, currentZoneIndex) => currentZoneIndex !== zoneIndex) }
+          : floor,
+      ),
+    }));
+  }
+
   function validate() {
-    const nextErrors: Partial<Record<keyof AddPropForm, string>> = {
-      name: getRequiredError(form.name, "Please enter the property name.") ?? undefined,
-      propId: getRequiredError(form.propId, "Please enter the property ID.") ?? undefined,
-      type: getRequiredError(form.type, "Please select the property type.") ?? undefined,
-      address: getRequiredError(form.address, "Please enter the property address.") ?? undefined,
-      city: getRequiredError(form.city, "Please enter the city.") ?? undefined,
-      state: getRequiredError(form.state, "Please enter the state or province.") ?? undefined,
-      contact: getRequiredError(form.contact, "Please enter the primary contact.") ?? undefined,
+    const nextErrors: Partial<Record<"propertyName" | "floors", string>> = {
+      propertyName: getRequiredError(form.propertyName, "Please enter the property name.") ?? undefined,
     };
+    if (form.floors.some((floor) => !floor.floorNumber.trim() || floor.zones.some((zone) => !zone.name.trim()))) {
+      nextErrors.floors = "Each floor and zone needs a name before saving.";
+    }
     setErrors(nextErrors);
     return Object.values(nextErrors).every((value) => !value);
   }
-  async function handleAdd() {
+
+  async function handleSubmit() {
     if (!validate()) return;
     try {
-      await createProperty({
-        propertyName: form.name.trim(),
-      });
-      showToast("success", "Property Added!", `"${form.name}" has been registered successfully.`);
+      setSaving(true);
+      await onSubmit(form);
       onClose();
-      onAdded();
-    } catch (e) {
-      showToast("error", "Failed to add property", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -234,44 +304,117 @@ function AddPropertyModal({
       <div style={ap.panel}>
         <div style={ap.header}>
           <div>
-            <h2 style={ap.title}>Add New Property</h2>
-            <p style={ap.sub}>Register a new asset in the management system.</p>
+            <h2 style={ap.title}>{mode === "create" ? "Add Property" : "Edit Property"}</h2>
+            <p style={ap.sub}>
+              {mode === "create"
+                ? "Create a property record and optionally upload an image."
+                : "Update the selected property details."}
+            </p>
           </div>
-          <button style={ap.closeBtn} onClick={onClose}><X size={17}/></button>
+          <button style={ap.closeBtn} onClick={onClose}><X size={17} /></button>
         </div>
         <div style={ap.body}>
-          {/* Property Information */}
-          <Section icon={<Building2 size={14}/>} label="Property Information">
-            <div style={ap.row2}>
-              <Field label="Property Name" error={errors.name}><input style={{ ...ap.input, ...(errors.name ? validationStyles.inputErrorBorder : null) }} placeholder="e.g. Skyline Heights" value={form.name} onChange={e=>set("name",e.target.value)}/></Field>
-              <Field label="Property ID" error={errors.propId}><input style={{ ...ap.input, ...(errors.propId ? validationStyles.inputErrorBorder : null) }} placeholder="PROP-888" value={form.propId} onChange={e=>set("propId",e.target.value)}/></Field>
-            </div>
-            <Field label="Property Type" error={errors.type}>
-              <select style={{ ...ap.input, ...(errors.type ? validationStyles.inputErrorBorder : null) }} value={form.type} onChange={e=>set("type",e.target.value)}>
-                <option value="">Select type</option>
-                {(["Commercial","Residential","Industrial"] as PropertyType[]).map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
+          <Section icon={<Building2 size={14} />} label="Property Details">
+            <Field label="Property Name" error={errors.propertyName}>
+              <input
+                style={{ ...ap.input, ...(errors.propertyName ? validationStyles.inputErrorBorder : null) }}
+                placeholder="e.g. Skyline Heights"
+                value={form.propertyName}
+                onChange={(e) => set("propertyName", e.target.value)}
+              />
             </Field>
           </Section>
 
-          {/* Location Details */}
-          <Section icon={<Search size={14}/>} label="Location Details">
-            <Field label="Full Address" error={errors.address}><input style={{ ...ap.input, ...(errors.address ? validationStyles.inputErrorBorder : null) }} placeholder="Street address, apartment, suite..." value={form.address} onChange={e=>set("address",e.target.value)}/></Field>
-            <div style={ap.row3}>
-              <Field label="City" error={errors.city}><input style={{ ...ap.input, ...(errors.city ? validationStyles.inputErrorBorder : null) }} placeholder="City name" value={form.city} onChange={e=>set("city",e.target.value)}/></Field>
-              <Field label="State/Province" error={errors.state}><input style={{ ...ap.input, ...(errors.state ? validationStyles.inputErrorBorder : null) }} placeholder="State" value={form.state} onChange={e=>set("state",e.target.value)}/></Field>
-              <Field label="Zip Code"><input style={ap.input} placeholder="Zip" value={form.zip} onChange={e=>set("zip",e.target.value)}/></Field>
-            </div>
-          </Section>
+          {mode === "create" ? (
+            <Section icon={<Map size={14} />} label="Floors & Zones">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 12.5, color: "var(--c-text-muted)" }}>
+                  Add each floor and the zones that belong to it.
+                </div>
+                <button type="button" style={ap.secondaryBtn} onClick={addFloor}>
+                  <Plus size={14} /> Add Floor
+                </button>
+              </div>
+              {errors.floors ? <div style={validationStyles.errorText}>{errors.floors}</div> : null}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {form.floors.map((floor, floorIndex) => (
+                  <div key={`${floorIndex}-${floor.floorNumber}`} style={ap.floorCard}>
+                    <div style={ap.floorHeader}>
+                      <Field label="Floor Number">
+                        <input
+                          style={ap.input}
+                          value={floor.floorNumber}
+                          onChange={(e) =>
+                            updateFloor(floorIndex, { ...floor, floorNumber: e.target.value })
+                          }
+                        />
+                      </Field>
+                      <button
+                        type="button"
+                        style={{ ...ap.secondaryBtn, color: "#dc2626", borderColor: "#fecaca" }}
+                        onClick={() => removeFloor(floorIndex)}
+                        disabled={form.floors.length === 1}
+                      >
+                        <Trash2 size={14} /> Remove Floor
+                      </button>
+                    </div>
 
-          {/* Operational Details */}
-          <Section icon={<Wrench size={14}/>} label="Operational Details">
-            <Field label="Primary Contact Person" error={errors.contact}><input style={{ ...ap.input, ...(errors.contact ? validationStyles.inputErrorBorder : null) }} placeholder="Manager name / Contact Number" value={form.contact} onChange={e=>set("contact",e.target.value)}/></Field>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {floor.zones.map((zone, zoneIndex) => (
+                        <div key={`${floorIndex}-${zoneIndex}`} style={ap.zoneRow}>
+                          <Field label={`Zone ${zoneIndex + 1}`}>
+                            <input
+                              style={ap.input}
+                              placeholder="e.g. Zone A"
+                              value={zone.name}
+                              onChange={(e) =>
+                                updateFloor(floorIndex, {
+                                  ...floor,
+                                  zones: floor.zones.map((currentZone, currentIndex) =>
+                                    currentIndex === zoneIndex
+                                      ? { ...currentZone, name: e.target.value }
+                                      : currentZone,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                          <button
+                            type="button"
+                            style={{ ...ap.secondaryBtn, color: "#dc2626", borderColor: "#fecaca", marginTop: 22 }}
+                            onClick={() => removeZone(floorIndex, zoneIndex)}
+                            disabled={floor.zones.length === 1}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" style={ap.secondaryBtn} onClick={() => addZone(floorIndex)}>
+                        <Plus size={14} /> Add Zone
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          ) : null}
+
+          <Section icon={<FileText size={14} />} label="Property Image">
+            <Field label="Upload Image">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style={ap.input}
+                onChange={(e) => set("image", e.target.files?.[0] ?? null)}
+              />
+            </Field>
           </Section>
         </div>
         <div style={ap.footer}>
           <button style={ap.cancelBtn} onClick={onClose}>Cancel</button>
-          <button style={ap.saveBtn} onClick={handleAdd}>Add Property</button>
+          <button style={ap.saveBtn} onClick={() => void handleSubmit()} disabled={saving}>
+            {saving ? (mode === "create" ? "Creating..." : "Saving...") : mode === "create" ? "Add Property" : "Save Changes"}
+          </button>
         </div>
       </div>
     </div>
@@ -332,15 +475,31 @@ function PropertyManagementSkeleton() {
 }
 
 // ─── Property list tab ────────────────────────────────────────────────────────
-function PropertyCard({ p }: { p: Property }) {
+function PropertyCard({
+  p,
+  onEdit,
+  onDelete,
+}: {
+  p: Property;
+  onEdit: (property: Property) => void;
+  onDelete: (property: Property) => void;
+}) {
   return (
     <div style={pl.card}>
-      {/* Image area */}
-      <div style={{ height:120, background:`linear-gradient(135deg, ${p.gradFrom}, ${p.gradTo})`, borderRadius:"10px 10px 0 0", position:"relative" as const, display:"flex", alignItems:"flex-end", padding:10 }}>
+      <div
+        style={{
+          height: 120,
+          background: p.imageUrl
+            ? `linear-gradient(rgba(15,23,42,0.2), rgba(15,23,42,0.55)), url(${p.imageUrl}) center/cover`
+            : `linear-gradient(135deg, ${p.gradFrom}, ${p.gradTo})`,
+          borderRadius: "10px 10px 0 0",
+          position: "relative" as const,
+          display: "flex",
+          alignItems: "flex-end",
+          padding: 10,
+        }}
+      >
         <Badge label={p.type.toUpperCase()} bg="rgba(0,0,0,0.45)" color="#fff" />
-        <button style={{ position:"absolute", top:8, right:8, background:"rgba(255,255,255,0.2)", border:"none", borderRadius:6, width:26, height:26, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}>
-          <MoreVertical size={14} />
-        </button>
       </div>
       <div style={{ padding:"12px 14px 14px" }}>
         <div style={{ fontSize:14, fontWeight:700, color:"var(--c-text)", marginBottom:3 }}>{p.name}</div>
@@ -355,7 +514,14 @@ function PropertyCard({ p }: { p: Property }) {
               border={p.amcStatus === "Active" ? "#bbf7d0" : "#fde68a"}
             />
           </div>
-          <button style={pl.viewBtn}>View Details →</button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={pl.viewBtn} onClick={() => onEdit(p)}>
+              <Pencil size={13} /> Edit
+            </button>
+            <button style={{ ...pl.viewBtn, color: "#dc2626" }} onClick={() => onDelete(p)}>
+              <Trash2 size={13} /> Delete
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -366,10 +532,14 @@ function PropertyListTab({
   properties,
   summary,
   onAddProperty,
+  onEditProperty,
+  onDeleteProperty,
 }: {
   properties: Property[];
   summary: PropertySummary | null;
   onAddProperty: () => void;
+  onEditProperty: (property: Property) => void;
+  onDeleteProperty: (property: Property) => void;
 }) {
   return (
     <div>
@@ -393,7 +563,14 @@ function PropertyListTab({
 
       {/* Grid */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:20 }}>
-        {properties.map(p => <PropertyCard key={p.id} p={p}/>)}
+        {properties.map((p) => (
+          <PropertyCard
+            key={p.id}
+            p={p}
+            onEdit={onEditProperty}
+            onDelete={onDeleteProperty}
+          />
+        ))}
         {/* Add placeholder */}
         <div
           style={{ border:"2px dashed var(--c-input-border)", borderRadius:12, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:32, gap:10, cursor:"pointer", background:"var(--c-card)" }}
@@ -703,6 +880,7 @@ function ReportsTab({ reports }: { reports: typeof REPORTS }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 const TAB_DEFS: { id: MainTab; label: string; icon: React.ElementType }[] = [
+  { id:"list",       label:"Properties",     icon: Building2 },
   { id:"workorders", label:"Work Orders",    icon: Wrench },
   { id:"assets",     label:"Asset Tracking", icon: BarChart2 },
   { id:"reports",    label:"Reports",        icon: BookOpen },
@@ -711,6 +889,7 @@ const TAB_DEFS: { id: MainTab; label: string; icon: React.ElementType }[] = [
 export function PropertyManagementPage() {
   const [tab, setTab] = useState<MainTab>("list");
   const [showAddProp, setShowAddProp] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const { showToast } = useToast();
 
   const [properties, setProperties] = useState<Property[]>(PROPERTIES);
@@ -735,13 +914,61 @@ export function PropertyManagementPage() {
 
     return {
       id: idx + 1,
+      apiId: String(p.id ?? idx + 1),
       name: String(p.propertyName ?? p.name ?? "—"),
       address: String(p.location ?? [p.city, p.stateProvince].filter(Boolean).join(", ") ?? "—"),
       type: mapType,
       amcStatus: mapAmc,
       gradFrom: "#1e3a5f",
       gradTo: "#2563eb",
+      imageUrl: p.imageUrl == null ? null : String(p.imageUrl),
+      createdAt: p.createdAt == null ? undefined : String(p.createdAt),
+      updatedAt: p.updatedAt == null ? undefined : String(p.updatedAt),
     };
+  }
+
+  async function handleCreateProperty(form: PropertyFormState) {
+    const floors = form.floors
+      .map((floor) => ({
+        floorNumber: Number(floor.floorNumber),
+        zones: floor.zones
+          .map((zone) => ({ name: zone.name.trim() }))
+          .filter((zone) => zone.name),
+      }))
+      .filter((floor) => Number.isFinite(floor.floorNumber) && floor.zones.length > 0);
+    const payload = new FormData();
+    payload.append("propertyName", form.propertyName.trim());
+    if (floors.length) payload.append("floors", JSON.stringify(floors));
+    if (form.image) payload.append("image", form.image);
+    await createProperty(payload);
+    showToast("success", "Property Added", `"${form.propertyName}" has been created.`);
+    await refreshAll();
+  }
+
+  async function handleUpdateProperty(form: PropertyFormState) {
+    if (!editingProperty?.apiId) return;
+    if (form.image) {
+      const payload = new FormData();
+      payload.append("name", form.propertyName.trim());
+      payload.append("image", form.image);
+      await updateProperty(editingProperty.apiId, payload);
+    } else {
+      await updateProperty(editingProperty.apiId, { name: form.propertyName.trim() });
+    }
+    showToast("success", "Property Updated", `"${form.propertyName}" has been updated.`);
+    setEditingProperty(null);
+    await refreshAll();
+  }
+
+  async function handleDeleteProperty(property: Property) {
+    if (!property.apiId) return;
+    try {
+      await deleteProperty(property.apiId);
+      showToast("success", "Property Deleted", `"${property.name}" has been removed.`);
+      await refreshAll();
+    } catch (e) {
+      showToast("error", "Failed to delete property", e instanceof Error ? e.message : "Please try again.");
+    }
   }
 
   function normalizeWorkOrderFromTask(t: Record<string, unknown>, idx: number): WorkOrder {
@@ -919,6 +1146,8 @@ export function PropertyManagementPage() {
           properties={properties}
           summary={propertySummary}
           onAddProperty={() => setShowAddProp(true)}
+          onEditProperty={(property) => setEditingProperty(property)}
+          onDeleteProperty={(property) => void handleDeleteProperty(property)}
         />
       )}
       {tab === "workorders" && <WorkOrdersTab workOrders={workOrders} />}
@@ -927,9 +1156,21 @@ export function PropertyManagementPage() {
 
       {/* Modals */}
       {showAddProp && (
-        <AddPropertyModal
+        <PropertyModal
+          mode="create"
           onClose={() => setShowAddProp(false)}
-          onAdded={() => void refreshAll()}
+          onSubmit={handleCreateProperty}
+        />
+      )}
+      {editingProperty && (
+        <PropertyModal
+          mode="edit"
+          initial={{
+            propertyName: editingProperty.name,
+            image: null,
+          }}
+          onClose={() => setEditingProperty(null)}
+          onSubmit={handleUpdateProperty}
         />
       )}
     </div>
@@ -978,6 +1219,10 @@ const ap: Record<string, React.CSSProperties> = {
   row2: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 },
   row3: { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 },
   input: { padding:"9px 12px", fontSize:13.5, border:"1px solid var(--c-input-border)", borderRadius:8, outline:"none", color:"var(--c-text)", background:"var(--c-input-bg)", width:"100%", boxSizing:"border-box" as const },
+  secondaryBtn: { display:"inline-flex", alignItems:"center", gap:6, padding:"8px 12px", fontSize:12.5, fontWeight:700, border:"1px solid var(--c-input-border)", borderRadius:8, background:"var(--c-card)", color:"var(--c-text-2)", cursor:"pointer" },
+  floorCard: { padding:"14px", border:"1px solid var(--c-card-border)", borderRadius:12, background:"var(--c-card)" },
+  floorHeader: { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:12 },
+  zoneRow: { display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"start" },
   footer: { display:"flex", justifyContent:"flex-end", gap:10, padding:"14px 24px", borderTop:"1px solid var(--c-divider)" },
   cancelBtn: { padding:"9px 20px", fontSize:13.5, fontWeight:600, border:"1px solid var(--c-input-border)", borderRadius:8, background:"var(--c-card)", color:"var(--c-text-2)", cursor:"pointer" },
   saveBtn: { padding:"9px 22px", fontSize:13.5, fontWeight:600, border:"none", borderRadius:8, background:"#2563eb", color:"#fff", cursor:"pointer" },

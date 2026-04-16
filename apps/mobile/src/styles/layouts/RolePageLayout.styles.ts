@@ -20,10 +20,13 @@ export const styles = StyleSheet.create({
   },
   heroTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
   },
   eyebrowPill: {
+    flexShrink: 1,
+    maxWidth: "82%",
     borderRadius: radii.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.14)",
@@ -37,6 +40,7 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: "uppercase",
+    flexShrink: 1,
   },
   notifyButton: {
     width: 42,
@@ -58,6 +62,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#E04F5F",
     borderWidth: 1,
     borderColor: "#202C43",
+    flexShrink: 0,
   },
   title: {
     marginTop: 16,
@@ -66,6 +71,7 @@ export const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 31,
     letterSpacing: -0.7,
+    flexShrink: 1,
   },
   titleCompact: {
     marginTop: 14,
@@ -75,14 +81,17 @@ export const styles = StyleSheet.create({
   subtitleRow: {
     marginTop: 8,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "nowrap",
     gap: 8,
+    minWidth: 0,
   },
   subtitleRowCompact: {
     marginTop: 6,
   },
   subtitle: {
     flex: 1,
+    minWidth: 0,
     color: "rgba(226,233,246,0.78)",
     fontFamily: font.family.medium,
     fontSize: 13,

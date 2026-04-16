@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../components/Button";
+import { ImagePreviewModal } from "../../components/ImagePreviewModal";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { getRoleHomePath } from "../../navigation/roleRoutes";
@@ -148,6 +149,7 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const zoneStatusText = insideGeofence ? "GPS ACTIVE" : "OUT OF ZONE";
@@ -422,7 +424,13 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
 
         <Pressable
           style={[styles.selfieCard, selfie && styles.selfieCardCaptured]}
-          onPress={mode === "check-in" ? handleCapture : () => void ensureLocation().catch(() => {})}
+          onPress={
+            selfie
+              ? () => setPreviewOpen(true)
+              : mode === "check-in"
+                ? handleCapture
+                : () => void ensureLocation().catch(() => {})
+          }
         >
           {selfie ? (
             <View style={[styles.selfiePreview, confirmed && styles.selfiePreviewConfirmed]}>
@@ -468,6 +476,13 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
             </View>
           )}
         </Pressable>
+
+        {mode === "check-in" && selfie && !confirmed ? (
+          <Pressable style={styles.previewActionRow} onPress={handleCapture}>
+            <Ionicons name="camera-reverse-outline" size={14} color="#2563EB" />
+            <Text style={styles.previewActionText}>Retake selfie</Text>
+          </Pressable>
+        ) : null}
 
         {(selfie || coords) ? (
           <View style={styles.detailCard}>
@@ -593,6 +608,14 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
           {statusMessage ?? (confirmed ? "Attendance recorded successfully." : copy.helper)}
         </Text>
       </RefreshableScrollView>
+
+      <ImagePreviewModal
+        visible={previewOpen}
+        imageUri={selfie?.uri ?? null}
+        title={mode === "check-in" ? "Attendance Selfie" : "Attendance Preview"}
+        subtitle={selfie ? `Captured at ${previewTime}` : "No image available"}
+        onClose={() => setPreviewOpen(false)}
+      />
     </View>
   );
 }
@@ -822,6 +845,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
   },
+  previewActionRow: {
+    marginTop: 10,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  previewActionText: {
+    color: "#2563EB",
+    fontFamily: font.family.bold,
+    fontSize: 12,
+  },
   selfiePreview: {
     minHeight: 200,
     padding: 14,
@@ -912,7 +947,8 @@ const styles = StyleSheet.create({
   },
   premisesCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     gap: 10,
     borderRadius: radii.md,
@@ -938,7 +974,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   infoTile: {
-    width: "48.4%",
+    flexGrow: 1,
+    flexBasis: "48%",
+    minWidth: 148,
+    maxWidth: "100%",
     borderRadius: radii.md,
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
@@ -966,7 +1005,8 @@ const styles = StyleSheet.create({
   },
   demoRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     borderRadius: radii.md,
     backgroundColor: "#FFF8E6",
@@ -980,6 +1020,7 @@ const styles = StyleSheet.create({
     fontFamily: font.family.bold,
     fontSize: 10,
     letterSpacing: 0.8,
+    flexShrink: 1,
   },
   helperText: {
     textAlign: "center",

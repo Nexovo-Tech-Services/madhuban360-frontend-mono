@@ -2,6 +2,7 @@ import { getApiBaseUrl } from "./env";
 import { getAuthHeaders, readJsonOrThrow, unwrapApiData } from "./client";
 
 const API_BASE = () => `${getApiBaseUrl()}/api/users`;
+const API_ADMIN_USERS = () => `${getApiBaseUrl()}/api/admin/users`;
 const API_ROLES = () => `${getApiBaseUrl()}/api/roles`;
 const API_DEPARTMENTS = () => `${getApiBaseUrl()}/api/departments`;
 
@@ -216,14 +217,18 @@ export async function deleteUser(id: string): Promise<unknown> {
 
 export async function resetPassword(
   id: string,
-  newPassword: string,
-): Promise<unknown> {
-  const res = await fetch(`${API_BASE()}/${id}/reset-password`, {
-    method: "PUT",
+  password: string,
+  confirmPassword: string,
+): Promise<{ message?: string; data?: { userId: number; password: string } }> {
+  const res = await fetch(`${API_ADMIN_USERS()}/${id}/reset-password`, {
+    method: "POST",
     headers: getAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ password: newPassword }),
+    body: JSON.stringify({ password, confirmPassword }),
   });
-  return readJsonOrThrow(res);
+  return (await readJsonOrThrow(res)) as {
+    message?: string;
+    data?: { userId: number; password: string };
+  };
 }
 
 export async function getRoles(): Promise<RoleRecord[]> {

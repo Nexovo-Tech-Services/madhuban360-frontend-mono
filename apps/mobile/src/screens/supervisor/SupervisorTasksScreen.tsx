@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { font, radii } from "@madhuban/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ImagePreviewModal } from "../../components/ImagePreviewModal";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
 import { useAuth } from "../../context/AuthContext";
@@ -496,12 +497,14 @@ function EvidenceCard({
   variant,
   missing = false,
   imageUrl,
+  onPreview,
 }: {
   label: string;
   time: string | null;
   variant: "before" | "after";
   missing?: boolean;
   imageUrl?: string | null;
+  onPreview?: (imageUrl: string, label: string) => void;
 }) {
   const isBefore = variant === "before";
   const resolvedImageUrl = normalizeImageUri(imageUrl);
@@ -535,8 +538,14 @@ function EvidenceCard({
     </>
   );
 
+  const previewEnabled = !!resolvedImageUrl && !missing && !!onPreview;
+
   return (
-    <View style={styles.evidenceCard}>
+    <Pressable
+      style={styles.evidenceCard}
+      onPress={previewEnabled ? () => onPreview(resolvedImageUrl!, label) : undefined}
+      disabled={!previewEnabled}
+    >
       {resolvedImageUrl && !missing ? (
         <ImageBackground
           source={{ uri: resolvedImageUrl }}
@@ -555,12 +564,13 @@ function EvidenceCard({
           {content}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
 function ReviewTaskModal({
   task,
+  visible,
   loading,
   actionsEnabled,
   decision,
@@ -571,8 +581,10 @@ function ReviewTaskModal({
   onToggleReason,
   onConfirm,
   onClose,
+  onPreviewImage,
 }: {
   task: ReviewTask | null;
+  visible: boolean;
   loading: boolean;
   actionsEnabled: boolean;
   decision: ReviewDecision;
@@ -583,6 +595,7 @@ function ReviewTaskModal({
   onToggleReason: (value: string) => void;
   onConfirm: () => void;
   onClose: () => void;
+  onPreviewImage: (imageUrl: string, label: string) => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -593,7 +606,7 @@ function ReviewTaskModal({
   const confirmDisabled = !actionsEnabled || (sendBack ? selectedReasons.length === 0 : !approve);
 
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <ScrollView
@@ -643,6 +656,7 @@ function ReviewTaskModal({
                   time={task.beforeTime}
                   variant="before"
                   imageUrl={task.beforePhotoUrl}
+                  onPreview={onPreviewImage}
                 />
                 <EvidenceCard
                   label="AFTER"
@@ -650,6 +664,7 @@ function ReviewTaskModal({
                   variant="after"
                   missing={!task.afterPhotoUrl}
                   imageUrl={task.afterPhotoUrl}
+                  onPreview={onPreviewImage}
                 />
               </View>
             </View>
@@ -808,6 +823,7 @@ export function SupervisorTasksScreen() {
   const [loading, setLoading] = useState(supportsTaskFeed);
   const [modalLoading, setModalLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ uri: string; title: string; subtitle?: string } | null>(null);
 
   const loadReviews = useCallback(async () => {
     if (!supportsTaskFeed) return;
@@ -972,6 +988,15 @@ export function SupervisorTasksScreen() {
     setDecision(null);
     setSelectedReasons([]);
     setComment("");
+  }
+
+  function openImagePreview(imageUrl: string, label: string) {
+    const task = selectedTask;
+    setPreviewImage({
+      uri: imageUrl,
+      title: task ? `${task.title} - ${label}` : label,
+      subtitle: task ? `${task.assigneeName} - ${task.location}` : undefined,
+    });
   }
 
   function toggleReason(reason: string) {
@@ -1261,6 +1286,7 @@ export function SupervisorTasksScreen() {
 
       <ReviewTaskModal
         task={selectedTask}
+        visible={!!selectedTask && !previewImage}
         loading={modalLoading || submitting}
         actionsEnabled={isSupervisor || isManager}
         decision={decision}
@@ -1271,6 +1297,15 @@ export function SupervisorTasksScreen() {
         onToggleReason={toggleReason}
         onConfirm={confirmReview}
         onClose={closeTaskModal}
+        onPreviewImage={openImagePreview}
+      />
+
+      <ImagePreviewModal
+        visible={!!previewImage}
+        imageUri={previewImage?.uri ?? null}
+        title={previewImage?.title}
+        subtitle={previewImage?.subtitle}
+        onClose={() => setPreviewImage(null)}
       />
 
       {toastMessage ? (

@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
+import { ImagePreviewModal } from "../../components/ImagePreviewModal";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 
@@ -311,20 +312,29 @@ function CameraCapture({
   label,
   imageUri,
   onCapturePress,
+  onPreviewPress,
 }: {
   label: string;
   imageUri: string | null;
   onCapturePress: () => void;
+  onPreviewPress?: () => void;
 }) {
   return (
-    <Pressable style={[ms.cameraBox, imageUri && ms.cameraBoxDone]} onPress={onCapturePress}>
+    <Pressable
+      style={[ms.cameraBox, imageUri && ms.cameraBoxDone]}
+      onPress={imageUri && onPreviewPress ? onPreviewPress : onCapturePress}
+    >
       {imageUri ? (
         <>
           <Image source={{ uri: imageUri }} style={ms.cameraPreviewImage} />
           <View style={ms.cameraPreviewShade} />
+          <Pressable style={ms.previewBadge} onPress={onPreviewPress}>
+            <Ionicons name="expand-outline" size={14} color="#FFFFFF" />
+            <Text style={ms.previewBadgeText}>Preview</Text>
+          </Pressable>
           <Ionicons name="checkmark-circle" size={44} color="#10B981" />
           <Text style={ms.cameraPreviewLabel}>Photo captured</Text>
-          <Text style={ms.cameraRetakeHint}>Tap to retake</Text>
+          <Text style={ms.cameraRetakeHint}>Open preview or capture again</Text>
         </>
       ) : (
         <>
@@ -353,6 +363,7 @@ function TaskDetailModal({
   onClose,
   errorMessage,
   actionState,
+  onPreviewImage,
 }: {
   task: TaskItem | null;
   visible: boolean;
@@ -367,6 +378,7 @@ function TaskDetailModal({
   onClose: () => void;
   errorMessage: string | null;
   actionState: TaskActionState;
+  onPreviewImage: (uri: string, title: string) => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -450,6 +462,7 @@ function TaskDetailModal({
                   label="Tap to Take Before Photo"
                   imageUri={beforeUri}
                   onCapturePress={() => onOpenCamera("before")}
+                  onPreviewPress={beforeUri ? () => onPreviewImage(beforeUri, `${task.title} - Before`) : undefined}
                 />
               </View>
             ) : null}
@@ -464,6 +477,7 @@ function TaskDetailModal({
                   label="Tap to Take After Photo"
                   imageUri={afterUri}
                   onCapturePress={() => onOpenCamera("after")}
+                  onPreviewPress={afterUri ? () => onPreviewImage(afterUri, `${task.title} - After`) : undefined}
                 />
               </View>
             ) : null}
@@ -521,6 +535,7 @@ export function TasksScreen() {
   const [capturingPhoto, setCapturingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ uri: string; title: string } | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
   const insets = useSafeAreaInsets();
@@ -800,7 +815,7 @@ export function TasksScreen() {
 
       <TaskDetailModal
         task={selectedTask}
-        visible={!!selectedTask && !cameraOpen}
+        visible={!!selectedTask && !cameraOpen && !previewImage}
         step={step}
         beforeUri={beforeUri}
         afterUri={afterUri}
@@ -811,6 +826,7 @@ export function TasksScreen() {
         onSubmitAfter={() => void submitAfter()}
         onClose={() => setSelectedTask(null)}
         errorMessage={uploadError}
+        onPreviewImage={(uri, title) => setPreviewImage({ uri, title })}
         actionState={selectedTaskActionState ?? getTaskActionState({
           id: "",
           title: "",
@@ -822,6 +838,14 @@ export function TasksScreen() {
           status: "PENDING",
           isCompleted: false,
         })}
+      />
+
+      <ImagePreviewModal
+        visible={!!previewImage}
+        imageUri={previewImage?.uri ?? null}
+        title={previewImage?.title}
+        subtitle={selectedTask ? `${selectedTask.location} - ${selectedTask.taskDate}` : undefined}
+        onClose={() => setPreviewImage(null)}
       />
     </>
   );
@@ -883,12 +907,14 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
   },
   filterTab: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
+    maxWidth: "100%",
     paddingHorizontal: 13,
     paddingVertical: 8,
     borderRadius: radii.full,
@@ -900,6 +926,7 @@ const s = StyleSheet.create({
     fontFamily: font.family.bold,
     fontSize: 12,
     lineHeight: 16,
+    flexShrink: 1,
   },
   filterTabTextActive: { color: "#FFFFFF" },
   filterBadge: {
@@ -935,7 +962,7 @@ const s = StyleSheet.create({
   },
   taskCardTop: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -956,6 +983,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    flexShrink: 1,
   },
   timeDot: {
     width: 6,
@@ -967,15 +995,17 @@ const s = StyleSheet.create({
     color: "#7C8AA2",
     fontFamily: font.family.bold,
     fontSize: 11,
+    flexShrink: 1,
   },
   taskCardMiddle: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
   },
   taskTitle: {
     flex: 1,
+    minWidth: 0,
     color: "#162236",
     fontFamily: font.family.bold,
     fontSize: 17,
@@ -988,6 +1018,7 @@ const s = StyleSheet.create({
   stateChip: {
     minHeight: 34,
     paddingHorizontal: 12,
+    maxWidth: 112,
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
@@ -1041,11 +1072,13 @@ const s = StyleSheet.create({
     color: "#7C8AA2",
     fontFamily: font.family.medium,
     fontSize: 12,
+    flexShrink: 1,
   },
   dateText: {
     color: "#64748B",
     fontFamily: font.family.medium,
     fontSize: 12,
+    flexShrink: 1,
   },
   notePill: {
     alignSelf: "flex-start",
@@ -1312,6 +1345,25 @@ const ms = StyleSheet.create({
   cameraPreviewShade: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(15,23,42,0.08)",
+  },
+  previewBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    backgroundColor: "rgba(15,23,42,0.56)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  previewBadgeText: {
+    color: "#FFFFFF",
+    fontFamily: font.family.bold,
+    fontSize: 11,
   },
   cameraPreviewLabel: {
     color: "#10B981",

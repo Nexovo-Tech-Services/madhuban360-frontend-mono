@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   heroCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 14,
   },
   heroAvatar: {
@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginTop: 4,
+    flexWrap: "wrap",
   },
   liveDotWrap: {
     width: 16,
@@ -89,7 +90,7 @@ export const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
     paddingHorizontal: 16,
@@ -114,6 +115,8 @@ export const styles = StyleSheet.create({
     color: "#1E2B43",
     fontFamily: font.family.black,
     fontSize: 15,
+    flexShrink: 1,
+    textAlign: "right",
   },
   divider: {
     height: 1,
@@ -147,6 +150,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    minWidth: 0,
   },
   sectionIconWrap: {
     width: 28,
@@ -171,7 +175,7 @@ export const styles = StyleSheet.create({
   },
   functionHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
   },
   functionIconWrap: {
@@ -194,6 +198,7 @@ export const styles = StyleSheet.create({
     fontFamily: font.family.medium,
     fontSize: 12,
     marginTop: 2,
+    lineHeight: 16,
   },
   statusPill: {
     borderRadius: radii.full,
@@ -248,13 +253,16 @@ export const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     marginTop: 2,
     borderTopWidth: 1,
     borderTopColor: "#EDF1F7",
     paddingTop: 14,
   },
   statCell: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "33%",
+    minWidth: 92,
     alignItems: "center",
     gap: 4,
   },

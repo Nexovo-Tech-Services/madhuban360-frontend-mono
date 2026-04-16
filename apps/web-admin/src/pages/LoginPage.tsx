@@ -100,6 +100,13 @@ export function LoginPage() {
     try {
       setLoading(true);
       const res = await login({ email: email.trim(), password });
+      const normalizedRole = String(res.data.user?.role ?? "").trim().toLowerCase();
+      if (normalizedRole !== "admin") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setError("Incorrect admin credentials. This portal is only for admin accounts.");
+        return;
+      }
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       if (remember) localStorage.setItem("rememberMe", "1");

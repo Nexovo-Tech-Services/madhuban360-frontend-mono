@@ -17,10 +17,15 @@ export const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 10,
+    width: "100%",
+    minWidth: 0,
   },
   label: {
     ...typography.authButton,
+    flexShrink: 1,
+    textAlign: "center",
   },
   icon: {
     fontSize: 18,

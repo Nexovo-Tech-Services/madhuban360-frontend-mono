@@ -75,6 +75,11 @@ export interface TaskFilters {
   date?: string;
 }
 
+export interface StaffMasterTaskFilters {
+  staffId?: string | number;
+  startDate?: string;
+}
+
 function mapMasterTask(raw: Record<string, unknown>): MasterTaskRecord {
   return {
     id: Number(raw.id ?? 0),
@@ -332,8 +337,20 @@ export async function rejectTask(): Promise<unknown> {
   throw new Error("Task approval is not documented by the admin API.");
 }
 
-export async function getStaffMasterTasks(): Promise<StaffMasterTaskRecord[]> {
-  const res = await fetch(API_ASSIGNMENTS(), { headers: getAuthHeaders() });
+export async function getStaffMasterTasks(
+  filters: StaffMasterTaskFilters = {},
+): Promise<StaffMasterTaskRecord[]> {
+  const search = new URLSearchParams();
+  if (filters.staffId != null && filters.staffId !== "") {
+    search.set("staffId", String(filters.staffId));
+  }
+  if (filters.startDate) {
+    search.set("startDate", filters.startDate);
+  }
+  const res = await fetch(
+    `${API_ASSIGNMENTS()}${search.toString() ? `?${search.toString()}` : ""}`,
+    { headers: getAuthHeaders() },
+  );
   const payload = unwrapApiData<unknown[]>(await readJsonOrThrow(res));
   return Array.isArray(payload)
     ? payload.map((item) => mapStaffAssignment(item as Record<string, unknown>))
