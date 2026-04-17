@@ -14,6 +14,7 @@ import {
   type SupervisorReviewsResponse,
 } from "@madhuban/api";
 import { StatusBar } from "expo-status-bar";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ImageBackground,
@@ -712,6 +713,24 @@ export function SupervisorTasksScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ uri: string; title: string; subtitle?: string } | null>(null);
 
+  const loadManagerReviewQueue = useCallback(
+    async (supervisorId: number) => {
+      const data = await getManagerTasks({
+        supervisorId,
+        date: selectedManagerTaskDate,
+        filter: "all",
+        status: toManagerApiStatus(selectedStatusFilter),
+        page: 1,
+        limit: 20,
+      });
+      const dailyTasks = await getDailyStaffTasks({ date: data.date });
+      setManagerTaskData(data);
+      setReviewData(null);
+      setTasksState(mergeManagerDailyTaskData(mapManagerTasksData(data), dailyTasks));
+    },
+    [selectedManagerTaskDate, selectedStatusFilter],
+  );
+
   const loadReviews = useCallback(async () => {
     if (!supportsTaskFeed) return;
     if (isSupervisor) {
@@ -740,43 +759,76 @@ export function SupervisorTasksScreen() {
       setTasksState([]);
       return;
     }
+    await loadManagerReviewQueue(selectedManagerSupervisorId);
+  }, [isSupervisor, loadManagerReviewQueue, search, selectedManagerSupervisorId, supportsTaskFeed]);
 
-    const data = await getManagerTasks({
-      supervisorId: selectedManagerSupervisorId,
-      date: selectedManagerTaskDate,
-      filter: "all",
-      status: toManagerApiStatus(selectedStatusFilter),
-      page: 1,
-      limit: 20,
-    });
-    const dailyTasks = await getDailyStaffTasks({ date: data.date });
-    setManagerTaskData(data);
-    setReviewData(null);
-    setTasksState(mergeManagerDailyTaskData(mapManagerTasksData(data), dailyTasks));
-  }, [isSupervisor, search, selectedManagerSupervisorId, selectedManagerTaskDate, selectedStatusFilter, supportsTaskFeed]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!supportsTaskFeed) {
+        setLoading(false);
+        return () => {
+          active = false;
+        };
+      }
+      setLoading(true);
+      loadReviews()
+        .catch(() => {
+          if (active) {
+            setReviewData(null);
+            setManagerTaskData(null);
+            setTasksState([]);
+          }
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [loadReviews, supportsTaskFeed]),
+  );
 
-  useEffect(() => {
-    let active = true;
-    if (!supportsTaskFeed) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    loadReviews()
-      .catch(() => {
-        if (active) {
-          setReviewData(null);
-          setManagerTaskData(null);
-          setTasksState([]);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [loadReviews, supportsTaskFeed]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!isManager) {
+        setManagerSupervisors([]);
+        setSelectedManagerSupervisorId(null);
+        return () => {
+          active = false;
+        };
+      }
+
+      getManagerSupervisors()
+        .then(async (items) => {
+          if (!active) return;
+          setManagerSupervisors(items);
+          if (items.length === 0) {
+            setSelectedManagerSupervisorId(null);
+            setManagerTaskData(null);
+            setTasksState([]);
+            return;
+          }
+          const nextSupervisorId = items.some((item) => item.id === selectedManagerSupervisorId)
+            ? selectedManagerSupervisorId ?? items[0].id
+            : items[0].id;
+          if (nextSupervisorId !== selectedManagerSupervisorId) {
+            setSelectedManagerSupervisorId(nextSupervisorId);
+          }
+          await loadManagerReviewQueue(nextSupervisorId);
+        })
+        .catch(() => {
+          if (active) {
+            setManagerSupervisors([]);
+          }
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [isManager, loadManagerReviewQueue, selectedManagerSupervisorId]),
+  );
 
   useEffect(() => {
     let active = true;

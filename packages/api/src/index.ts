@@ -71,10 +71,6 @@ export {
   updateProperty,
   deleteProperty,
   getPropertySummary,
-  getAssets,
-  getAssetSummary,
-  getReports,
-  getReportsAnalytics,
 } from "./properties";
 export {
   getCurrentUser,

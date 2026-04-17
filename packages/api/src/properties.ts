@@ -2,8 +2,6 @@ import { getApiBaseUrl } from "./env";
 import { getAuthHeaders, readJsonOrThrow, unwrapApiData } from "./client";
 
 const API_PROPERTIES = () => `${getApiBaseUrl()}/api/properties`;
-const API_ASSETS = () => `${getApiBaseUrl()}/api/assets`;
-const API_REPORTS = () => `${getApiBaseUrl()}/api/reports`;
 
 export interface PropertyZone {
   id: number;
@@ -218,37 +216,4 @@ export async function deleteProperty(
     headers: getAuthHeaders(),
   });
   return (await readJsonOrThrow(res)) as { message?: string };
-}
-
-export async function getAssets(params: Record<string, string> = {}): Promise<unknown> {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_ASSETS()}${qs ? `?${qs}` : ""}`, {
-    headers: getAuthHeaders(),
-  });
-  return readJsonOrThrow(res);
-}
-
-export async function getAssetSummary(): Promise<unknown> {
-  const res = await fetch(`${API_ASSETS()}/summary`, {
-    headers: getAuthHeaders(),
-  });
-  return readJsonOrThrow(res);
-}
-
-export async function getReports(params: Record<string, string> = {}): Promise<unknown> {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_REPORTS()}${qs ? `?${qs}` : ""}`, {
-    headers: getAuthHeaders(),
-  });
-  return readJsonOrThrow(res);
-}
-
-export async function getReportsAnalytics(
-  params: Record<string, string> = {},
-): Promise<unknown> {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_REPORTS()}/analytics${qs ? `?${qs}` : ""}`, {
-    headers: getAuthHeaders(),
-  });
-  return readJsonOrThrow(res);
 }

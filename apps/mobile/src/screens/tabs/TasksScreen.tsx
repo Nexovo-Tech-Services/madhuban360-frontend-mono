@@ -168,7 +168,7 @@ function getTaskActionState(task: TaskItem): TaskActionState {
       helperText: "This task has already been completed.",
     };
   }
-  if (approvalStatus === "REJECTED") {
+  if (taskStatus === "REJECTED" || approvalStatus === "REJECTED") {
     return {
       label: "Sent Back",
       actionable: true,

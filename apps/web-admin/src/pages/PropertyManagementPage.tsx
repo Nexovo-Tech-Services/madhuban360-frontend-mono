@@ -29,11 +29,8 @@ import { useToast } from "../context/ToastContext";
 import {
   createProperty,
   deleteProperty,
-  getAssetSummary,
-  getAssets,
   getProperties,
   getPropertySummary,
-  getReports,
   getTasks,
   updateProperty,
 } from "@madhuban/api";
@@ -69,7 +66,6 @@ interface Asset {
   id: number; name: string; icon: string; location: string;
   condition: AssetCondition; lastMaint: string; nextService: string; overdue?: boolean;
 }
-
 type PropertySummary = { total: number; activeAmc: number; expiringAmc: number };
 type AssetSummary = { total: number; needsAttention: number; upcomingService: number; uptimeRate: number };
 
@@ -895,9 +891,14 @@ export function PropertyManagementPage() {
   const [properties, setProperties] = useState<Property[]>(PROPERTIES);
   const [propertySummary, setPropertySummary] = useState<PropertySummary | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(WORK_ORDERS);
-  const [assets, setAssets] = useState<Asset[]>(ASSETS);
-  const [assetSummary, setAssetSummary] = useState<AssetSummary | null>(null);
-  const [reports, setReports] = useState(REPORTS);
+  const assets = ASSETS;
+  const assetSummary: AssetSummary | null = {
+    total: ASSETS.length,
+    needsAttention: ASSETS.filter((asset) => asset.overdue).length,
+    upcomingService: ASSETS.length,
+    uptimeRate: 98,
+  };
+  const reports = REPORTS;
   const [loading, setLoading] = useState(true);
 
   useShellHeader({ showSearch: true });
@@ -1037,16 +1038,16 @@ export function PropertyManagementPage() {
     };
   }
 
+  void normalizeAsset;
+  void normalizeReport;
+
   async function refreshAll() {
     try {
       setLoading(true);
-      const [propsRaw, propSum, taskRaw, assetsRaw, assetSum, reportsRaw] = await Promise.all([
+      const [propsRaw, propSum, taskRaw] = await Promise.all([
         getProperties(),
         getPropertySummary().catch(() => null),
         getTasks().catch(() => []),
-        getAssets({}).catch(() => ({ list: [] })),
-        getAssetSummary().catch(() => null),
-        getReports({}).catch(() => ({ list: [] })),
       ]);
 
       if (Array.isArray(propsRaw) && propsRaw.length) {
@@ -1074,31 +1075,6 @@ export function PropertyManagementPage() {
         setWorkOrders(taskRaw.map((t, idx) => normalizeWorkOrderFromTask(t as Record<string, unknown>, idx)));
       }
 
-      const aList =
-        (assetsRaw as { data?: unknown; list?: unknown[]; total?: unknown }).data ??
-        (assetsRaw as { list?: unknown[] }).list ??
-        [];
-      if (Array.isArray(aList) && aList.length) {
-        setAssets(aList.map((a, idx) => normalizeAsset(a as Record<string, unknown>, idx)));
-      }
-
-      if (assetSum && typeof assetSum === "object") {
-        const d = (assetSum as { data?: Record<string, unknown> }).data ?? (assetSum as Record<string, unknown>);
-        setAssetSummary({
-          total: Number(d.total ?? 0) || 0,
-          needsAttention: Number(d.needsAttention ?? d.needs_attention ?? 0) || 0,
-          upcomingService: Number(d.upcomingService ?? d.upcoming_service ?? 0) || 0,
-          uptimeRate: Number(d.uptimeRate ?? d.uptime_rate ?? 0) || 0,
-        });
-      }
-
-      const rList =
-        (reportsRaw as { data?: unknown; list?: unknown[] }).data ??
-        (reportsRaw as { list?: unknown[] }).list ??
-        [];
-      if (Array.isArray(rList) && rList.length) {
-        setReports(rList.map((r, idx) => normalizeReport(r as Record<string, unknown>, idx)));
-      }
     } catch (e) {
       showToast("error", "Failed to sync properties data", e instanceof Error ? e.message : "Please try again.");
     } finally {

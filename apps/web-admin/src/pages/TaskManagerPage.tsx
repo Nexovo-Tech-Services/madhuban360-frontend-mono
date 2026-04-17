@@ -177,6 +177,43 @@ function normalizePriority(raw: unknown): TaskPriority {
   return "NORMAL";
 }
 
+function formatIstTime(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const date = new Date(trimmed);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+  }
+  const timeOnlyMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (timeOnlyMatch) {
+    const hour = Number(timeOnlyMatch[1]);
+    const minute = Number(timeOnlyMatch[2]);
+    const temp = new Date(Date.UTC(1970, 0, 1, hour, minute));
+    return temp.toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+  }
+  return trimmed;
+}
+
+function formatTaskSchedule(startTime?: string | null, endTime?: string | null): string {
+  const start = formatIstTime(startTime);
+  const end = formatIstTime(endTime);
+  if (start && end) return `${start} - ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return "No schedule";
+}
+
 // ─── Meta badge renderer ──────────────────────────────────────────────────────
 function MetaBadge({ meta, type }: { meta: string; type?: MetaType }) {
   if (!meta) return null;
@@ -968,7 +1005,7 @@ export function TaskManagerPage() {
                     <div style={pg.masterMetaCard}>
                       <div style={pg.masterMetaLabel}>Schedule</div>
                       <div style={pg.masterMetaValue}>
-                        {task.startTime ?? "No start"} - {task.endTime ?? "No end"}
+                        {formatTaskSchedule(task.startTime, task.endTime)}
                       </div>
                     </div>
                     <div style={pg.masterMetaCard}>
