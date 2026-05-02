@@ -19,6 +19,7 @@ import { AttendanceActionCard } from "../../components/AttendanceActionCard";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
 import { useAuth } from "../../context/AuthContext";
+import { useAppPermissions } from "../../hooks/useAppPermissions";
 import { styles } from "../../styles/screens/tabs/home.styles";
 
 function HeroGradient() {
@@ -391,6 +392,7 @@ function CardSkeleton({ rows = 3 }: { rows?: number }) {
 }
 
 export function SupervisorHomeScreen() {
+  useAppPermissions();
   const { user, role } = useAuth();
   const insets = useSafeAreaInsets();
   const normalizedRole = String(role ?? user?.role ?? "").trim().toLowerCase();

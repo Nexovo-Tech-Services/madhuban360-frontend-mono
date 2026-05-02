@@ -250,10 +250,12 @@ export function ReportsScreen() {
                       <View style={styles.streakIcon}>
                         <MaterialCommunityIcons name="fire" size={18} color="#FF7A00" />
                       </View>
-                      <View>
-                        <Text style={styles.streakValue}>{report?.attendance.currentStreakDays ?? 0}</Text>
-                        <Text style={styles.streakLabel}>Day Streak</Text>
-                        <Text style={styles.streakMeta}>
+                      <View style={styles.streakTextBlock}>
+                        <Text style={styles.streakValue} numberOfLines={1}>
+                          {report?.attendance.currentStreakDays ?? 0}
+                        </Text>
+                        <Text style={styles.streakLabel} numberOfLines={1}>Day Streak</Text>
+                        <Text style={styles.streakMeta} numberOfLines={2}>
                           Personal best: {report?.attendance.bestStreakDays ?? 0} days
                         </Text>
                       </View>
@@ -268,17 +270,19 @@ export function ReportsScreen() {
                           ))}
                         </View>
                         <View style={styles.heatmap}>
-                          {attendancePattern.flatMap((row, rowIndex) =>
-                            row.map((value, colIndex) => (
-                              <View
-                                key={`${rowIndex}-${colIndex}`}
-                                style={[
-                                  styles.heatCell,
-                                  value ? styles.heatCellPresent : styles.heatCellAbsent,
-                                ]}
-                              />
-                            )),
-                          )}
+                          {attendancePattern.map((row, rowIndex) => (
+                            <View key={rowIndex} style={styles.heatRow}>
+                              {row.map((value, colIndex) => (
+                                <View
+                                  key={`${rowIndex}-${colIndex}`}
+                                  style={[
+                                    styles.heatCell,
+                                    value ? styles.heatCellPresent : styles.heatCellAbsent,
+                                  ]}
+                                />
+                              ))}
+                            </View>
+                          ))}
                         </View>
                         <View style={styles.legendRow}>
                           <View style={styles.legendItem}>

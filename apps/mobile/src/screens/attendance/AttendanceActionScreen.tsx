@@ -447,7 +447,7 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
         >
           {selfie ? (
             <View style={[styles.selfiePreview, confirmed && styles.selfiePreviewConfirmed]}>
-              <Image source={{ uri: selfie.uri }} style={styles.selfieImage} />
+              <Image source={{ uri: selfie.uri }} style={styles.selfieImage} resizeMode="cover" />
               <View style={styles.selfieShade} />
               <View style={styles.selfieOverlayTop}>
                 <Text style={styles.selfieLocation}>Current Coordinates - {coordinatesText}</Text>
@@ -877,9 +877,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#334155",
   },
   selfieImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   selfieShade: {
     ...StyleSheet.absoluteFillObject,

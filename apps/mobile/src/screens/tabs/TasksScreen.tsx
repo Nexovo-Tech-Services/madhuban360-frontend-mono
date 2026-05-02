@@ -338,7 +338,7 @@ function CameraCapture({
     >
       {imageUri ? (
         <>
-          <Image source={{ uri: imageUri }} style={ms.cameraPreviewImage} />
+          <Image source={{ uri: imageUri }} style={ms.cameraPreviewImage} resizeMode="cover" />
           <View style={ms.cameraPreviewShade} />
           <Pressable style={ms.previewBadge} onPress={onPreviewPress}>
             <Ionicons name="expand-outline" size={14} color="#FFFFFF" />
@@ -1352,9 +1352,11 @@ const ms = StyleSheet.create({
     fontSize: 12,
   },
   cameraPreviewImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   cameraPreviewShade: {
     ...StyleSheet.absoluteFillObject,

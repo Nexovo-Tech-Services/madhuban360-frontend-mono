@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
   halfCard: {
     flex: 1,
     minWidth: 150,
+    overflow: "hidden",
   },
   card: {
     borderRadius: 24,
@@ -128,44 +129,52 @@ export const styles = StyleSheet.create({
     backgroundColor: "#FFF1E6",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+  },
+  streakTextBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   streakValue: {
     color: "#1F2D46",
     fontFamily: font.family.black,
-    fontSize: 34,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 30,
   },
   streakLabel: {
     color: "#8B98AE",
     fontFamily: font.family.bold,
-    fontSize: 11,
+    fontSize: 10,
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   streakMeta: {
     color: "#A4B0C2",
     fontFamily: font.family.medium,
-    fontSize: 11,
+    fontSize: 10,
+    flexShrink: 1,
   },
   weekLabelRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 4,
   },
   weekLabel: {
-    width: 20,
+    flex: 1,
     textAlign: "center",
     color: "#C2CAD8",
     fontFamily: font.family.bold,
     fontSize: 10,
   },
   heatmap: {
+    gap: 4,
+  },
+  heatRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 4,
   },
   heatCell: {
-    width: 20,
-    height: 20,
+    flex: 1,
+    aspectRatio: 1,
     borderRadius: 5,
   },
   heatCellPresent: {

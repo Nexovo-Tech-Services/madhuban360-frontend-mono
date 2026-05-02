@@ -6,6 +6,7 @@ import { AttendanceActionCard } from "../../components/AttendanceActionCard";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { SkeletonBlock } from "../../components/SkeletonBlock";
 import { useAuth } from "../../context/AuthContext";
+import { useAppPermissions } from "../../hooks/useAppPermissions";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
 
 function MetricCard({
@@ -44,6 +45,7 @@ function formatDateLabel(value: string | null | undefined) {
 }
 
 export function StaffHomeScreen() {
+  useAppPermissions();
   const { user, role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<{
