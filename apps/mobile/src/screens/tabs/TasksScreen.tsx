@@ -25,6 +25,7 @@ import { SkeletonBlock } from "../../components/SkeletonBlock";
 import { ImagePreviewModal } from "../../components/ImagePreviewModal";
 import { useAuth } from "../../context/AuthContext";
 import { RolePageLayout, formatRoleLabel } from "../../layouts/RolePageLayout";
+import { prepareUploadImage } from "../../utils/prepareUploadImage";
 
 type FilterKey = "all" | "critical" | "high" | "done";
 type ModalStep = "detail" | "before" | "after";
@@ -119,6 +120,13 @@ function getTaskErrorMessage(error: unknown, fallback: string): string {
   const message = error.message?.trim();
   if (!message) return fallback;
   const normalized = message.toLowerCase();
+  if (
+    normalized.includes("request failed (413)") ||
+    normalized.includes("payload too large") ||
+    normalized.includes("request entity too large")
+  ) {
+    return "The captured photo is still too large to upload. Please retake it and try again.";
+  }
   if (
     normalized.includes("network request failed") ||
     normalized.includes("network error") ||
@@ -670,8 +678,9 @@ export function TasksScreen() {
       setCapturingPhoto(true);
       setUploadError(null);
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
-      if (captureTarget === "before") setBeforeUri(photo.uri);
-      if (captureTarget === "after") setAfterUri(photo.uri);
+      const preparedPhoto = await prepareUploadImage(photo.uri, "task");
+      if (captureTarget === "before") setBeforeUri(preparedPhoto.uri);
+      if (captureTarget === "after") setAfterUri(preparedPhoto.uri);
       setCameraOpen(false);
       setCaptureTarget(null);
     } catch (error) {

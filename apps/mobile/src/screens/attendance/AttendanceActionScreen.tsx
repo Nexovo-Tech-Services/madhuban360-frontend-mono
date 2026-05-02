@@ -27,6 +27,7 @@ import { ImagePreviewModal } from "../../components/ImagePreviewModal";
 import { RefreshableScrollView } from "../../components/RefreshableScrollView";
 import { useAuth } from "../../context/AuthContext";
 import { getRoleHomePath } from "../../navigation/roleRoutes";
+import { prepareUploadImage } from "../../utils/prepareUploadImage";
 
 type AttendanceMode = "check-in" | "check-out";
 
@@ -95,6 +96,13 @@ function getFriendlyErrorMessage(error: unknown, fallback: string): string {
   const message = error.message?.trim();
   if (!message) return fallback;
   const normalized = message.toLowerCase();
+  if (
+    normalized.includes("request failed (413)") ||
+    normalized.includes("payload too large") ||
+    normalized.includes("request entity too large")
+  ) {
+    return "The captured selfie is still too large to upload. Please retake it and try again.";
+  }
   if (
     normalized.includes("network request failed") ||
     normalized.includes("network error") ||
@@ -228,9 +236,14 @@ export function AttendanceActionScreen({ mode }: { mode: AttendanceMode }) {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
       });
+      const preparedPhoto = await prepareUploadImage(photo.uri, "selfie");
       setCoords(nextCoords);
       const now = new Date();
-      setSelfie({ uri: photo.uri, width: photo.width, height: photo.height });
+      setSelfie({
+        uri: preparedPhoto.uri,
+        width: preparedPhoto.width || photo.width,
+        height: preparedPhoto.height || photo.height,
+      });
       setCapturedAt(now);
       setActionAt(now);
       setConfirmed(false);
